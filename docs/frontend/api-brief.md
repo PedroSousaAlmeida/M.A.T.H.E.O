@@ -184,10 +184,33 @@ Regras:
 - Collection Postman com todos os requests: `docs/collections/matheo-nfse-api.postman_collection.json`.
 - CORS ainda não está configurado na API — será liberado para a origem do front quando ele existir.
 
-## 8. Próximas features já planejadas (deixar espaço na UI)
+## 8. Em desenvolvimento agora (v0.2.0) — desenhar já
 
-- **Trial de 30 dias** por empresa (`trialEndsAt`); emissão bloqueada com `402` após o prazo → tela de planos.
-- **Tomadores salvos** (clientes recorrentes): CRUD + autocomplete no formulário de nota.
+Contratos fechados (spec `docs/superpowers/specs/2026-09-12-trial-and-customers-design.md`); a API entrega em seguida.
+
+**Trial de 30 dias**
+- `Company` ganha `"plan": "TRIAL" | "ACTIVE"` e `"trialEndsAt": "2026-10-12T..."` (começa no `POST /companies`).
+- Trial vencido: só `POST /invoices` responde **`402`** `{ "message": "Trial expired", "details": { "trialEndsAt": "..." } }` → tela de planos. Tudo o mais continua funcionando.
+- UI: "X dias restantes" no dashboard; banner quando faltar ≤ 5 dias.
+
+**Tomadores salvos (clientes)** — `/customers`, sempre da empresa do usuário
+
+| Método | Rota | Body / query | Resposta |
+|---|---|---|---|
+| `POST` | `/customers` | `{ "documento": "98765432000100", "nome": "Empresa Cliente", "email"?: "...", "telefone"?: "..." }` | 201 `Customer` · 409 documento já cadastrado |
+| `GET` | `/customers?search=&page=&limit=` | `search` filtra por nome (contém, sem case) ou início do documento | paginado `{ data, page, limit, total }`, ordem por nome |
+| `GET` | `/customers/:id` | — | `Customer` · 404 |
+| `PATCH` | `/customers/:id` | qualquer campo acima | `Customer` · 409 |
+| `DELETE` | `/customers/:id` | — | 204 (notas antigas ficam intactas) |
+
+`Customer`: `{ "id", "documento", "nome", "email", "telefone", "createdAt", "updatedAt" }`.
+
+**Emissão com cliente** — `POST /invoices` passa a aceitar **ou** `"customerId": "uuid"` **ou** os campos `tomador*` (exatamente um dos dois; os dois ou nenhum → 400). Com `tomador*` pode mandar `"saveCustomer": true` pra salvar o cliente automaticamente. A nota devolve `"customerId"` (ou `null`) e sempre os dados copiados do tomador.
+
+UI sugerida no formulário de nota: campo "Cliente" com autocomplete (busca em `/customers?search=`); ao escolher, preenche e trava documento/nome; opção "novo cliente" abre os campos livres + checkbox "salvar este cliente".
+
+## 9. Próximas features (deixar espaço na UI)
+
 - **Serviços salvos** (descrição + código de tributação favoritos).
 - Validação de dígito verificador de CPF/CNPJ no backend (hoje só formato).
 - Múltiplas empresas por usuário / acesso de contador.
