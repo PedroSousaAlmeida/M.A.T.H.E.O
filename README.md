@@ -30,6 +30,16 @@ bun run test:e2e                          # e2e com Postgres do compose e gatewa
 
 `NFSE_ENV=fake` (padrão) usa `FakeNfseGateway`. Com `producao-restrita`/`producao` a API exige `NFSE_SEFIN_URL`, `NFSE_ADN_URL` e um certificado A1 válido cadastrado em `PUT /companies/me/certificate`.
 
+## Certificado de desenvolvimento
+
+Com `NFSE_ENV=fake` qualquer `.pfx` válido serve. Gere um autoassinado com:
+
+```bash
+bun run scripts/dev-certificate.ts dev-cert.pfx dev-password
+```
+
+e envie em `PUT /api/v0/companies/me/certificate` (form-data: `file` + `password`). Arquivos `*.pfx` são ignorados pelo git. Esse certificado **não** é ICP-Brasil e será rejeitado pela API Nacional real.
+
 ## Endpoints
 
 Todas as rotas, incluindo `/health`, vivem sob o prefixo `/api/v0`.
