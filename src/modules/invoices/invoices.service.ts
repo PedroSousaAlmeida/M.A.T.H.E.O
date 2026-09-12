@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -36,26 +37,34 @@ export class InvoicesService {
     const { company, certificate } = await this.companies.getCompanyWithCertificate(userId);
     const valor = dto.valor.toFixed(2);
 
-    const invoice = await this.prisma.$transaction(async (tx) => {
-      const { _max } = await tx.invoice.aggregate({
-        where: { companyId: company.id, dpsSerie: DEFAULT_SERIE },
-        _max: { dpsNumero: true },
+    let invoice: Invoice;
+    try {
+      invoice = await this.prisma.$transaction(async (tx) => {
+        const { _max } = await tx.invoice.aggregate({
+          where: { companyId: company.id, dpsSerie: DEFAULT_SERIE },
+          _max: { dpsNumero: true },
+        });
+        return tx.invoice.create({
+          data: {
+            companyId: company.id,
+            status: 'PENDING',
+            dpsSerie: DEFAULT_SERIE,
+            dpsNumero: (_max.dpsNumero ?? 0) + 1,
+            tomadorDocumento: dto.tomadorDocumento,
+            tomadorNome: dto.tomadorNome,
+            tomadorEmail: dto.tomadorEmail ?? null,
+            descricao: dto.descricao,
+            valor,
+            codigoTributacao: dto.codigoTributacao,
+          },
+        });
       });
-      return tx.invoice.create({
-        data: {
-          companyId: company.id,
-          status: 'PENDING',
-          dpsSerie: DEFAULT_SERIE,
-          dpsNumero: (_max.dpsNumero ?? 0) + 1,
-          tomadorDocumento: dto.tomadorDocumento,
-          tomadorNome: dto.tomadorNome,
-          tomadorEmail: dto.tomadorEmail ?? null,
-          descricao: dto.descricao,
-          valor,
-          codigoTributacao: dto.codigoTributacao,
-        },
-      });
-    });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        throw new ConflictException('Concurrent emission for this company; retry the request');
+      }
+      throw error;
+    }
 
     const dps: DpsData = {
       ambiente: this.ambiente,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
-import { BadGatewayException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadGatewayException, ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { CompaniesService } from '@/modules/companies/companies.service';
@@ -95,6 +95,12 @@ describe('InvoicesService', () => {
       gateway.emit.mockRejectedValue(new NfseUnavailableError());
       await expect(service.emit(userId, dto)).rejects.toBeInstanceOf(BadGatewayException);
       expect(prisma.invoice.update).not.toHaveBeenCalled();
+    });
+
+    it('maps a dpsNumero unique-constraint race to 409', async () => {
+      prisma.invoice.create.mockRejectedValue({ code: 'P2002' });
+      await expect(service.emit(userId, dto)).rejects.toBeInstanceOf(ConflictException);
+      expect(gateway.emit).not.toHaveBeenCalled();
     });
   });
 
