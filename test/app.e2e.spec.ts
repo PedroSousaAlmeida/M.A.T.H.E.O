@@ -3,7 +3,6 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SignJWT, generateKeyPair, type CryptoKey } from 'jose';
 import request from 'supertest';
-import { AppModule } from '@/app.module';
 import { HttpExceptionFilter } from '@/common/http-exception.filter';
 import { JWKS } from '@/modules/auth/jwks.provider';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -38,6 +37,9 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     process.env.NFSE_ENV = 'fake';
     ({ privateKey, publicKey } = await generateKeyPair('ES384'));
 
+    // Imported lazily: loading AppModule evaluates ConfigModule.forRoot({ validate }) immediately,
+    // which must only happen after the env above is set (and never when the suite is skipped).
+    const { AppModule } = await import('@/app.module');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(JWKS)
       .useValue(async () => publicKey)
