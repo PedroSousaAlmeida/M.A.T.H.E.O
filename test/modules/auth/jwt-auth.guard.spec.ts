@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { SignJWT, generateKeyPair, type CryptoKey } from 'jose';
+import { SignJWT, generateKeyPair, type CryptoKey, type JWTVerifyGetKey } from 'jose';
 import { JwtAuthGuard } from '@/modules/auth/jwt-auth.guard';
 import { IS_PUBLIC_KEY } from '@/modules/auth/public.decorator';
 
@@ -23,12 +23,12 @@ function contextFor(authorization?: string): { ctx: ExecutionContext; request: a
   return { ctx, request };
 }
 
-function buildGuard(isPublic = false) {
+function buildGuard(isPublic = false, jwks: JWTVerifyGetKey = async () => publicKey) {
   const config = {
     get: (key: string) => (key === 'LOGTO_ENDPOINT' ? 'http://localhost:3001' : AUDIENCE),
   } as unknown as ConfigService<any, true>;
   const reflector = { getAllAndOverride: (key: string) => (key === IS_PUBLIC_KEY ? isPublic : undefined) } as unknown as Reflector;
-  return new JwtAuthGuard(config, reflector, async () => publicKey);
+  return new JwtAuthGuard(config, reflector, jwks);
 }
 
 async function token(overrides: { issuer?: string; audience?: string; key?: CryptoKey; exp?: string; sub?: string } = {}) {
@@ -79,5 +79,13 @@ describe('JwtAuthGuard', () => {
   it('lets @Public() routes through without a token', async () => {
     const { ctx } = contextFor(undefined);
     await expect(buildGuard(true).canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('rejects with ServiceUnavailableException when the key getter fails (e.g. JWKS fetch/network error)', async () => {
+    const failingJwks: JWTVerifyGetKey = async () => {
+      throw new Error('ECONNREFUSED');
+    };
+    const { ctx } = contextFor(`Bearer ${await token()}`);
+    await expect(buildGuard(false, failingJwks).canActivate(ctx)).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });

@@ -1,13 +1,22 @@
-import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Inject,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { jwtVerify, type JWTVerifyGetKey } from 'jose';
+import { errors as joseErrors, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { Env } from '../../config/env';
 import { JWKS } from './jwks.provider';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  private readonly logger = new Logger(JwtAuthGuard.name);
   private readonly issuer: string;
   private readonly audience: string;
 
@@ -35,11 +44,21 @@ export class JwtAuthGuard implements CanActivate {
         issuer: this.issuer,
         audience: this.audience,
       });
-      if (!payload.sub) throw new Error('missing sub');
+      if (!payload.sub) {
+        throw new UnauthorizedException('Invalid token');
+      }
       request.user = { id: payload.sub };
       return true;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof joseErrors.JOSEError) {
+        this.logger.debug(`Token rejected: ${error.code ?? error.name}`);
+        throw new UnauthorizedException('Invalid token');
+      }
+      this.logger.error('Token verification failed', error instanceof Error ? error.stack : String(error));
+      throw new ServiceUnavailableException('Token verification unavailable');
     }
   }
 }
