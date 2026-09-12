@@ -57,6 +57,21 @@ Todas as rotas, incluindo `/health`, vivem sob o prefixo `/api/v0`.
 | GET | /api/v0/invoices/:id/xml | XML da NFS-e |
 | GET | /api/v0/invoices/:id/pdf | DANFSe |
 | POST | /api/v0/invoices/:id/cancel | `{ motivo }` |
+| POST | /api/v0/customers | cria cliente (tomador) salvo |
+| GET | /api/v0/customers?search=&page=&limit= | lista clientes da empresa |
+| GET | /api/v0/customers/:id | detalhe do cliente |
+| PATCH | /api/v0/customers/:id | atualiza cliente |
+| DELETE | /api/v0/customers/:id | remove cliente (notas antigas ficam com `customerId = null`) |
+
+## Planos e trial
+
+Toda empresa nasce com `plan = 'TRIAL'` e `trialEndsAt = createdAt + 30 dias` (`POST /companies`). Com o trial vencido, só a emissão (`POST /invoices`) é bloqueada, com `402` e `details.trialEndsAt`; consultar, baixar e cancelar notas continuam funcionando. `GET /api/v0/companies/me` sempre mostra `plan` e `trialEndsAt`.
+
+Para ativar manualmente uma empresa (sem gateway de pagamento nesta versão):
+
+```sql
+UPDATE companies SET plan = 'ACTIVE' WHERE cnpj = '...';
+```
 
 ## Versionamento
 

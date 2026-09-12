@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "MATHEO NFS-e API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Backend emissor de NFS-e para MEI. Todas as rotas ficam sob {{baseUrl}} (= http://localhost:3000/api/v0). Exceto /health, todas exigem access token do Logto. A collection ja vem com OAuth 2.0 (Authorization Code + PKCE) apontando para o Logto: preencha logtoClientId/logtoClientSecret no environment, abra Authorization na collection e clique em 'Get New Access Token'. O parametro resource={{apiResource}} e obrigatorio para o Logto emitir um JWT com aud correto (sem ele o token e opaco e a API responde 401). A versao desta collection (info.version) acompanha a versao do package.json.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -117,6 +117,10 @@
     },
     {
       "key": "invoiceId",
+      "value": ""
+    },
+    {
+      "key": "customerId",
       "value": ""
     }
   ],
@@ -255,6 +259,143 @@
       ]
     },
     {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "POST /customers — criar cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('customerId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documento\": \"98765432000100\",\n  \"nome\": \"Empresa Cliente\",\n  \"email\": \"fin@cliente.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customers — listar",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers?search=&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "empresa",
+                  "disabled": true,
+                  "description": "filtra por nome (contém) ou início do documento"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customers/:id — detalhe",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /customers/:id — atualizar",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Empresa Cliente Ltda\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /customers/:id — remover",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Invoices",
       "item": [
         {
@@ -282,7 +423,46 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tomadorDocumento\": \"12345678909\",\n  \"tomadorNome\": \"Cliente Exemplo\",\n  \"tomadorEmail\": \"cliente@exemplo.com\",\n  \"descricao\": \"Consultoria em tecnologia da informacao\",\n  \"valor\": 150.00,\n  \"codigoTributacao\": \"01.01.01\"\n}"
+              "raw": "{\n  \"tomadorDocumento\": \"12345678909\",\n  \"tomadorNome\": \"Cliente Exemplo\",\n  \"tomadorEmail\": \"cliente@exemplo.com\",\n  \"descricao\": \"Consultoria em tecnologia da informacao\",\n  \"valor\": 150.00,\n  \"codigoTributacao\": \"01.01.01\",\n  \"saveCustomer\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /invoices — emitir por customerId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('invoiceId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"descricao\": \"Consultoria\",\n  \"valor\": 150.00,\n  \"codigoTributacao\": \"01.01.01\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/invoices",

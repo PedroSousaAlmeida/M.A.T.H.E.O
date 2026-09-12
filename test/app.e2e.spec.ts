@@ -54,6 +54,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
 
   afterAll(async () => {
     await prisma.invoice.deleteMany({ where: { company: { cnpj } } });
+    await prisma.customer.deleteMany({ where: { company: { cnpj } } });
     await prisma.company.deleteMany({ where: { cnpj } });
     await app.close();
   });
@@ -78,6 +79,8 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     const created = await request(server).post('/api/v0/companies').set(auth).send({ cnpj, razaoSocial: 'E2E LTDA', codigoMunicipio: '3550308' });
     expect(created.status).toBe(201);
     expect(created.body.hasCertificate).toBe(false);
+    expect(created.body.plan).toBe('TRIAL');
+    expect(new Date(created.body.trialEndsAt).getTime()).toBeGreaterThan(Date.now() + 29 * 86400000);
 
     const noCert = await request(server).post('/api/v0/invoices').set(auth).send({ tomadorDocumento: '12345678909', tomadorNome: 'Cliente', descricao: 'Serviço', valor: 100, codigoTributacao: '01.01.01' });
     expect(noCert.status).toBe(422);
@@ -88,16 +91,29 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(uploaded.body.hasCertificate).toBe(true);
     expect(uploaded.body).not.toHaveProperty('certificatePfx');
 
+    const customer = await request(server).post('/api/v0/customers').set(auth).send({ documento: '98765432000100', nome: 'Empresa Cliente', email: 'fin@cliente.com' });
+    expect(customer.status).toBe(201);
+    expect(customer.body).not.toHaveProperty('companyId');
+    const customerId = customer.body.id;
+
+    const searched = await request(server).get('/api/v0/customers?search=empresa').set(auth);
+    expect(searched.status).toBe(200);
+    expect(searched.body.total).toBe(1);
+
+    const byCustomer = await request(server).post('/api/v0/invoices').set(auth).send({ customerId, descricao: 'Serviço para cliente salvo', valor: 50, codigoTributacao: '01.01.01' });
+    expect(byCustomer.status).toBe(201);
+    expect(byCustomer.body).toMatchObject({ status: 'ISSUED', customerId, tomadorDocumento: '98765432000100', tomadorNome: 'Empresa Cliente', dpsNumero: 1 });
+
     const emitted = await request(server).post('/api/v0/invoices').set(auth).send({ tomadorDocumento: '12345678909', tomadorNome: 'Cliente', descricao: 'Serviço', valor: 100, codigoTributacao: '01.01.01' });
     expect(emitted.status).toBe(201);
     expect(emitted.body.status).toBe('ISSUED');
-    expect(emitted.body.dpsNumero).toBe(1);
+    expect(emitted.body.dpsNumero).toBe(2);
     expect(emitted.body.chaveAcesso).toMatch(/^\d{50}$/);
     const id = emitted.body.id;
 
     const list = await request(server).get('/api/v0/invoices?status=ISSUED').set(auth);
     expect(list.status).toBe(200);
-    expect(list.body.total).toBe(1);
+    expect(list.body.total).toBe(2);
     expect(list.body.data[0].id).toBe(id);
 
     const xml = await request(server).get(`/api/v0/invoices/${id}/xml`).set(auth);
