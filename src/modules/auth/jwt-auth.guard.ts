@@ -43,6 +43,7 @@ export class JwtAuthGuard implements CanActivate {
       const { payload } = await jwtVerify(header.slice('Bearer '.length), this.jwks, {
         issuer: this.issuer,
         audience: this.audience,
+        algorithms: ['ES384', 'RS256'],
       });
       if (!payload.sub) {
         throw new UnauthorizedException('Invalid token');

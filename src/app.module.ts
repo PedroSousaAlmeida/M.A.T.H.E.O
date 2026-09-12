@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env';
 import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { HealthController } from './modules/health/health.controller';
 import { InvoicesModule } from './modules/invoices/invoices.module';
@@ -19,6 +20,10 @@ import { PrismaModule } from './prisma/prisma.module';
     InvoicesModule,
   ],
   controllers: [HealthController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    // throttle first so unauthenticated floods are rate-limited before JWKS work
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
 })
 export class AppModule {}
