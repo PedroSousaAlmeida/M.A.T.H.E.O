@@ -6,6 +6,7 @@ import { validateEnv } from './config/env';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { CompaniesModule } from './modules/companies/companies.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { HealthController } from './modules/health/health.controller';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -17,6 +18,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     AuthModule,
     CompaniesModule,
+    CustomersModule,
     InvoicesModule,
   ],
   controllers: [HealthController],
