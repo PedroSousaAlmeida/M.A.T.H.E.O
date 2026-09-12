@@ -16,5 +16,5 @@
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] }
   },
-  "include": ["src", "test", "prisma.config.ts"]
+  "include": ["src", "test", "scripts", "prisma.config.ts"]
 }

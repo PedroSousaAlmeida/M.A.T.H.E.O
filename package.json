@@ -11,7 +11,8 @@
     "prisma:generate": "bunx --bun prisma generate",
     "prisma:migrate": "bunx --bun prisma migrate dev",
     "postinstall": "bunx --bun prisma generate || true",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "version:check": "bun run scripts/version-check.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11",

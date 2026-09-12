@@ -47,3 +47,16 @@ Todas as rotas, incluindo `/health`, vivem sob o prefixo `/api/v0`.
 | GET | /api/v0/invoices/:id/xml | XML da NFS-e |
 | GET | /api/v0/invoices/:id/pdf | DANFSe |
 | POST | /api/v0/invoices/:id/cancel | `{ motivo }` |
+
+## Versionamento
+
+O projeto segue [SemVer](https://semver.org). Enquanto estiver em alfa o *major* fica em `0` e só `minor`/`patch` sobem (`0.1.0` → `0.1.1` → `0.2.0`…). A versão em `package.json` é a fonte da verdade:
+
+- `docs/collections/*.postman_collection.json` deve ter `info.version` igual — `bun run version:check` valida.
+- Todo PR para `main` precisa subir a versão (`.github/workflows/version.yml` compara com a `main` e recusa versão igual, menor ou já tagueada).
+- No merge em `main` a action cria a tag `vX.Y.Z` e a GitHub Release (marcada como *pre-release* enquanto major = 0). Se a tag já existir, ela valida que aponta pra mesma versão.
+- `.github/workflows/ci.yml` roda typecheck, testes unitários e o `version:check` em todo PR.
+
+## Postman
+
+Importe `docs/collections/matheo-nfse-api.postman_collection.json` e o environment `docs/collections/local.postman_environment.json`. Preencha `token` com um access token do Logto (API resource `https://api.matheo.local`). O request `POST /invoices` salva o `id` retornado em `invoiceId` para os requests seguintes. Ao criar uma collection nova, use a mesma versão do `package.json` em `info.version`.
