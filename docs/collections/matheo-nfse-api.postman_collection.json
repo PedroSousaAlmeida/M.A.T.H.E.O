@@ -2,17 +2,123 @@
   "info": {
     "name": "MATHEO NFS-e API",
     "version": "0.1.0",
-    "description": "Backend emissor de NFS-e para MEI. Todas as rotas ficam sob {{baseUrl}} (= http://localhost:3000/api/v0). Exceto /health, todas exigem Bearer token do Logto na variavel {{token}}. A versao desta collection (info.version) acompanha a versao do package.json.",
+    "description": "Backend emissor de NFS-e para MEI. Todas as rotas ficam sob {{baseUrl}} (= http://localhost:3000/api/v0). Exceto /health, todas exigem access token do Logto. A collection ja vem com OAuth 2.0 (Authorization Code + PKCE) apontando para o Logto: preencha logtoClientId/logtoClientSecret no environment, abra Authorization na collection e clique em 'Get New Access Token'. O parametro resource={{apiResource}} e obrigatorio para o Logto emitir um JWT com aud correto (sem ele o token e opaco e a API responde 401). A versao desta collection (info.version) acompanha a versao do package.json.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
-    "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    "type": "oauth2",
+    "oauth2": [
+      {
+        "key": "grant_type",
+        "value": "authorization_code_with_pkce",
+        "type": "string"
+      },
+      {
+        "key": "authUrl",
+        "value": "{{logtoEndpoint}}/oidc/auth",
+        "type": "string"
+      },
+      {
+        "key": "accessTokenUrl",
+        "value": "{{logtoEndpoint}}/oidc/token",
+        "type": "string"
+      },
+      {
+        "key": "clientId",
+        "value": "{{logtoClientId}}",
+        "type": "string"
+      },
+      {
+        "key": "clientSecret",
+        "value": "{{logtoClientSecret}}",
+        "type": "string"
+      },
+      {
+        "key": "redirect_uri",
+        "value": "https://oauth.pstmn.io/v1/callback",
+        "type": "string"
+      },
+      {
+        "key": "scope",
+        "value": "openid profile offline_access",
+        "type": "string"
+      },
+      {
+        "key": "challengeAlgorithm",
+        "value": "S256",
+        "type": "string"
+      },
+      {
+        "key": "client_authentication",
+        "value": "body",
+        "type": "string"
+      },
+      {
+        "key": "useBrowser",
+        "value": true,
+        "type": "boolean"
+      },
+      {
+        "key": "tokenName",
+        "value": "logto-access-token",
+        "type": "string"
+      },
+      {
+        "key": "addTokenTo",
+        "value": "header",
+        "type": "string"
+      },
+      {
+        "key": "authRequestParams",
+        "value": [
+          {
+            "key": "resource",
+            "value": "{{apiResource}}",
+            "enabled": true,
+            "sendIn": "queryParams"
+          }
+        ],
+        "type": "any"
+      },
+      {
+        "key": "tokenRequestParams",
+        "value": [
+          {
+            "key": "resource",
+            "value": "{{apiResource}}",
+            "enabled": true,
+            "sendIn": "body"
+          }
+        ],
+        "type": "any"
+      }
+    ]
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000/api/v0" },
-    { "key": "token", "value": "" },
-    { "key": "invoiceId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v0"
+    },
+    {
+      "key": "logtoEndpoint",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "apiResource",
+      "value": "https://api.matheo.local"
+    },
+    {
+      "key": "logtoClientId",
+      "value": ""
+    },
+    {
+      "key": "logtoClientSecret",
+      "value": ""
+    },
+    {
+      "key": "invoiceId",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -21,9 +127,19 @@
         {
           "name": "GET /health",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
           },
           "response": []
         }
@@ -36,12 +152,25 @@
           "name": "POST /companies — criar empresa",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"cnpj\": \"12345678000199\",\n  \"razaoSocial\": \"Minha MEI LTDA\",\n  \"inscricaoMunicipal\": \"123456\",\n  \"codigoMunicipio\": \"3550308\",\n  \"email\": \"contato@exemplo.com\",\n  \"telefone\": \"11999999999\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/companies", "host": ["{{baseUrl}}"], "path": ["companies"] }
+            "url": {
+              "raw": "{{baseUrl}}/companies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "companies"
+              ]
+            }
           },
           "response": []
         },
@@ -49,7 +178,16 @@
           "name": "GET /companies/me",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/companies/me", "host": ["{{baseUrl}}"], "path": ["companies", "me"] }
+            "url": {
+              "raw": "{{baseUrl}}/companies/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "companies",
+                "me"
+              ]
+            }
           },
           "response": []
         },
@@ -57,9 +195,26 @@
           "name": "PATCH /companies/me — atualizar dados",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"razaoSocial\": \"Minha MEI Atualizada LTDA\"\n}" },
-            "url": { "raw": "{{baseUrl}}/companies/me", "host": ["{{baseUrl}}"], "path": ["companies", "me"] }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razaoSocial\": \"Minha MEI Atualizada LTDA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "companies",
+                "me"
+              ]
+            }
           },
           "response": []
         },
@@ -70,11 +225,30 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "file", "type": "file", "src": "", "description": "Certificado A1 (.pfx, max 10 KB)" },
-                { "key": "password", "type": "text", "value": "senha-do-certificado" }
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Certificado A1 (.pfx, max 10 KB)"
+                },
+                {
+                  "key": "password",
+                  "type": "text",
+                  "value": "senha-do-certificado"
+                }
               ]
             },
-            "url": { "raw": "{{baseUrl}}/companies/me/certificate", "host": ["{{baseUrl}}"], "path": ["companies", "me", "certificate"] }
+            "url": {
+              "raw": "{{baseUrl}}/companies/me/certificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "companies",
+                "me",
+                "certificate"
+              ]
+            }
           },
           "response": []
         }
@@ -100,12 +274,25 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tomadorDocumento\": \"12345678909\",\n  \"tomadorNome\": \"Cliente Exemplo\",\n  \"tomadorEmail\": \"cliente@exemplo.com\",\n  \"descricao\": \"Consultoria em tecnologia da informacao\",\n  \"valor\": 150.00,\n  \"codigoTributacao\": \"01.01.01\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/invoices", "host": ["{{baseUrl}}"], "path": ["invoices"] }
+            "url": {
+              "raw": "{{baseUrl}}/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices"
+              ]
+            }
           },
           "response": []
         },
@@ -115,12 +302,27 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/invoices?page=1&limit=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["invoices"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "20" },
-                { "key": "status", "value": "ISSUED", "disabled": true, "description": "PENDING | ISSUED | REJECTED | CANCELLED" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "ISSUED",
+                  "disabled": true,
+                  "description": "PENDING | ISSUED | REJECTED | CANCELLED"
+                }
               ]
             }
           },
@@ -130,7 +332,16 @@
           "name": "GET /invoices/:id — detalhe",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/invoices/{{invoiceId}}", "host": ["{{baseUrl}}"], "path": ["invoices", "{{invoiceId}}"] }
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}"
+              ]
+            }
           },
           "response": []
         },
@@ -138,7 +349,17 @@
           "name": "GET /invoices/:id/xml — XML da NFS-e",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/invoices/{{invoiceId}}/xml", "host": ["{{baseUrl}}"], "path": ["invoices", "{{invoiceId}}", "xml"] }
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/xml",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "xml"
+              ]
+            }
           },
           "response": []
         },
@@ -146,7 +367,17 @@
           "name": "GET /invoices/:id/pdf — DANFSe",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/invoices/{{invoiceId}}/pdf", "host": ["{{baseUrl}}"], "path": ["invoices", "{{invoiceId}}", "pdf"] }
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "pdf"
+              ]
+            }
           },
           "response": []
         },
@@ -154,9 +385,27 @@
           "name": "POST /invoices/:id/cancel — cancelar",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"motivo\": \"Erro de digitacao no valor do servico\"\n}" },
-            "url": { "raw": "{{baseUrl}}/invoices/{{invoiceId}}/cancel", "host": ["{{baseUrl}}"], "path": ["invoices", "{{invoiceId}}", "cancel"] }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Erro de digitacao no valor do servico\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoices/{{invoiceId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "{{invoiceId}}",
+                "cancel"
+              ]
+            }
           },
           "response": []
         }
