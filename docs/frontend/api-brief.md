@@ -148,17 +148,35 @@ PENDING que ficou (fisco fora do ar) aparece na lista até ser reconciliada (fut
 | REJECTED | vermelho | ver motivo (`rejectionReason`), "emitir novamente" (pré-preenche o formulário) |
 | PENDING | amarelo | ver; sem ações |
 
-## 5. Fluxos de tela sugeridos
+## 5. Registro, onboarding e o "gate" por estado
+
+O Logto só sabe **quem** a pessoa é. Quem ela é **como MEI** (CNPJ, município, certificado) o app pergunta uma única vez, na tela de onboarding ("complete seu cadastro"). O front decide qual tela mostrar olhando o **estado** devolvido pela API — não existe permissão especial no Logto.
+
+```
+[Landing] → "Criar conta" → tela do Logto (e-mail+senha ou social) → token
+    → GET /companies/me
+         ├─ 404 ───────────────────────→ ONBOARDING (obrigatório; nada mais funciona sem empresa)
+         └─ 200 ┬─ hasCertificate=false → DASHBOARD com aviso fixo "cadastre seu certificado"
+                │                           (emitir nota fica bloqueado; API responde 422)
+                └─ hasCertificate=true  → DASHBOARD, uso pleno
+```
+
+Regras:
+- **Onboarding em 2 passos**: (1) dados da empresa → `POST /companies` — cria a empresa e **inicia o trial de 30 dias** (o trial conta a partir daqui, não do registro no Logto); (2) certificado → `PUT /companies/me/certificate`. O passo 2 **pode ser pulado** ("fazer depois"): o usuário entra no app e cadastra o `.pfx` quando tiver, pelo aviso do dashboard ou pela tela Empresa.
+- Enquanto `GET /companies/me` for 404, todas as rotas de nota respondem 404 — o front deve manter o usuário no onboarding.
+- Trial vencido (`plan: "TRIAL"` e `trialEndsAt` no passado): só a **emissão** bloqueia (`402`); consultar, baixar e cancelar continuam. O front mostra "X dias restantes" no dashboard e a tela de planos ao receber 402.
+
+## 6. Fluxos de tela sugeridos
 
 1. **Landing → Login/Cadastro** (Logto hospeda a tela; o front só redireciona).
-2. **Onboarding** (primeiro acesso, `GET /companies/me` = 404): passo 1 dados da empresa (`POST /companies`); passo 2 certificado (`PUT .../certificate`, arrastar `.pfx` + senha). Pode pular o passo 2, mas a emissão fica bloqueada (mostrar aviso permanente "cadastre o certificado").
+2. **Onboarding** (primeiro acesso, `GET /companies/me` = 404): passo 1 dados da empresa (`POST /companies`); passo 2 certificado (`PUT .../certificate`, arrastar `.pfx` + senha) com opção "fazer depois".
 3. **Dashboard**: total emitido no mês, últimas notas, alerta de certificado (ausente / vence em X dias), atalho "Nova nota".
 4. **Nova nota**: formulário dos 6 campos acima; ao enviar mostra loading ("enviando ao fisco…"), depois sucesso (número, chave, botões PDF/XML) ou o erro 422 com motivo.
 5. **Lista de notas**: filtro por status, paginação, ações por linha.
 6. **Detalhe da nota**: todos os campos + botões PDF/XML/cancelar (cancelar pede o motivo, mín. 15 caracteres).
 7. **Empresa**: editar dados, trocar certificado.
 
-## 6. Ambiente de desenvolvimento
+## 7. Ambiente de desenvolvimento
 
 - API: `bun run dev` → `http://localhost:3000/api/v0/health`.
 - Logto: `http://localhost:3001` (OIDC), console `http://localhost:3002`.
@@ -166,7 +184,7 @@ PENDING que ficou (fisco fora do ar) aparece na lista até ser reconciliada (fut
 - Collection Postman com todos os requests: `docs/collections/matheo-nfse-api.postman_collection.json`.
 - CORS ainda não está configurado na API — será liberado para a origem do front quando ele existir.
 
-## 7. Próximas features já planejadas (deixar espaço na UI)
+## 8. Próximas features já planejadas (deixar espaço na UI)
 
 - **Trial de 30 dias** por empresa (`trialEndsAt`); emissão bloqueada com `402` após o prazo → tela de planos.
 - **Tomadores salvos** (clientes recorrentes): CRUD + autocomplete no formulário de nota.
