@@ -5,3 +5,5 @@ generated/
 !test/fixtures/*.pfx
 dist
 .superpowers/
+annotations/
+anottations/
