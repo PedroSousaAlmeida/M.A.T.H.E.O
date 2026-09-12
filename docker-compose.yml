@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:17
+    environment:
+      POSTGRES_USER: matheo
+      POSTGRES_PASSWORD: matheo
+      POSTGRES_DB: matheo
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matheo"]
+      interval: 5s
+      retries: 10
+
+  logto-db:
+    image: docker.io/library/postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: p0stgr3s
+      POSTGRES_DB: logto
+    volumes: [logtodata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+  logto:
+    image: docker.io/svhd/logto:latest
+    depends_on:
+      logto-db: { condition: service_healthy }
+    entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm start"]
+    ports: ["3001:3001", "3002:3002"]
+    environment:
+      TRUST_PROXY_HEADER: 1
+      DB_URL: postgres://postgres:p0stgr3s@logto-db:5432/logto
+      ENDPOINT: http://localhost:3001
+      ADMIN_ENDPOINT: http://localhost:3002
+
+  api:
+    build: .
+    profiles: ["full"]          # `docker compose --profile full up` — by default run the API with `bun run dev` on the host
+    depends_on:
+      postgres: { condition: service_healthy }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://matheo:matheo@postgres:5432/matheo
+      LOGTO_ENDPOINT: http://logto:3001
+    ports: ["3000:3000"]
+
+volumes:
+  pgdata:
+  logtodata:

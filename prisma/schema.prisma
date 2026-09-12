@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum InvoiceStatus {
+  PENDING
+  ISSUED
+  REJECTED
+  CANCELLED
+}
+
+model Company {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  cnpj               String    @unique
+  razaoSocial        String
+  inscricaoMunicipal String?
+  codigoMunicipio    String
+  email              String?
+  telefone           String?
+  certificatePfx     Bytes?
+  certificatePass    String?
+  certificateExpiry  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  invoices           Invoice[]
+
+  @@map("companies")
+}
+
+model Invoice {
+  id               String        @id @default(uuid())
+  companyId        String
+  company          Company       @relation(fields: [companyId], references: [id])
+  status           InvoiceStatus @default(PENDING)
+  dpsNumero        Int
+  dpsSerie         String        @default("1")
+  tomadorDocumento String
+  tomadorNome      String
+  tomadorEmail     String?
+  descricao        String
+  valor            Decimal       @db.Decimal(12, 2)
+  codigoTributacao String
+  chaveAcesso      String?       @unique
+  numeroNfse       String?
+  xmlDps           String?
+  xmlNfse          String?
+  rejectionReason  String?
+  cancelledAt      DateTime?
+  cancelReason     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([companyId, dpsSerie, dpsNumero])
+  @@index([companyId, status])
+  @@map("invoices")
+}
