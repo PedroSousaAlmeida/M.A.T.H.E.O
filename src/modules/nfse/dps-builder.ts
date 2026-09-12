@@ -35,7 +35,29 @@ function tag(name: string, value: string | null | undefined): string {
   return value ? `<${name}>${escapeXml(value)}</${name}>` : '';
 }
 
+function assertDigits(value: string, field: string, exact?: number, max?: number): string {
+  if (!/^\d+$/.test(value)) throw new Error(`${field} must contain only digits`);
+  if (exact !== undefined && value.length !== exact) throw new Error(`${field} must have exactly ${exact} digits`);
+  if (max !== undefined && value.length > max) throw new Error(`${field} must have at most ${max} digits`);
+  return value;
+}
+
 export function buildDpsXml(dps: DpsData): { id: string; xml: string } {
+  // Validate inputs before building XML
+  assertDigits(dps.prestador.codigoMunicipio, 'prestador.codigoMunicipio', 7);
+  assertDigits(dps.prestador.cnpj, 'prestador.cnpj', 14);
+  assertDigits(dps.serie, 'serie', undefined, 5);
+  assertDigits(String(dps.numero), 'numero', undefined, 15);
+  if (dps.tomador.documento.length !== 11 && dps.tomador.documento.length !== 14) {
+    throw new Error('tomador.documento must have exactly 11 or 14 digits');
+  }
+  assertDigits(dps.tomador.documento, 'tomador.documento');
+  const cTribNac = dps.servico.codigoTributacao.replace(/\D/g, '');
+  assertDigits(cTribNac, 'servico.codigoTributacao (stripped)', 6);
+  if (!/^\d+\.\d{2}$/.test(dps.servico.valor)) {
+    throw new Error('servico.valor must match format "XXX.XX" (two decimal places)');
+  }
+
   const id =
     'DPS' +
     dps.prestador.codigoMunicipio.padStart(7, '0') +
@@ -49,7 +71,7 @@ export function buildDpsXml(dps: DpsData): { id: string; xml: string } {
 
   const xml =
     `<DPS xmlns="${NFSE_NAMESPACE}" versao="1.00">` +
-    `<infDPS Id="${id}">` +
+    `<infDPS Id="${escapeXml(id)}">` +
     tag('tpAmb', tpAmb(dps.ambiente)) +
     tag('dhEmi', dhEmi) +
     tag('verAplic', APP_VERSION) +
@@ -69,14 +91,14 @@ export function buildDpsXml(dps: DpsData): { id: string; xml: string } {
     tag('email', dps.tomador.email) +
     '</toma>' +
     '<serv>' +
-    `<locPrest><cLocPrestacao>${dps.prestador.codigoMunicipio}</cLocPrestacao></locPrest>` +
+    `<locPrest><cLocPrestacao>${escapeXml(dps.prestador.codigoMunicipio)}</cLocPrestacao></locPrest>` +
     '<cServ>' +
-    tag('cTribNac', dps.servico.codigoTributacao.replace(/\D/g, '')) +
+    tag('cTribNac', cTribNac) +
     tag('xDescServ', dps.servico.descricao) +
     '</cServ>' +
     '</serv>' +
     '<valores>' +
-    `<vServPrest><vServ>${dps.servico.valor}</vServ></vServPrest>` +
+    '<vServPrest>' + tag('vServ', dps.servico.valor) + '</vServPrest>' +
     '<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><totTrib><indTotTrib>0</indTotTrib></totTrib></trib>' +
     '</valores>' +
     '</infDPS>' +
@@ -93,12 +115,16 @@ export function buildCancelEventXml(input: {
   dataEvento: Date;
   sequencial?: number;
 }): { id: string; xml: string } {
+  // Validate inputs before building XML
+  assertDigits(input.chaveAcesso, 'chaveAcesso', 50);
+  assertDigits(input.cnpjAutor, 'cnpjAutor', 14);
+
   const tipoEvento = '101101'; // Cancelamento de NFS-e
   const id = `PRE${input.chaveAcesso}${tipoEvento}${String(input.sequencial ?? 1).padStart(3, '0')}`;
 
   const xml =
     `<pedRegEvento xmlns="${NFSE_NAMESPACE}" versao="1.00">` +
-    `<infPedReg Id="${id}">` +
+    `<infPedReg Id="${escapeXml(id)}">` +
     tag('tpAmb', tpAmb(input.ambiente)) +
     tag('verAplic', APP_VERSION) +
     tag('dhEvento', formatDateTimeBr(input.dataEvento)) +

@@ -52,6 +52,18 @@ describe('buildDpsXml', () => {
     expect(xml).toContain('<xNome>Cliente &amp; Cia</xNome>');
     expect(xml).toContain('<xDescServ>Consultoria &lt;TI&gt;</xDescServ>');
   });
+
+  it('throws for an 8-digit codigoMunicipio (must be exactly 7)', () => {
+    expect(() => buildDpsXml({ ...dps, prestador: { ...dps.prestador, codigoMunicipio: '35503081' } })).toThrow('must have exactly 7 digits');
+  });
+
+  it('throws for a 16-digit numero (must be at most 15)', () => {
+    expect(() => buildDpsXml({ ...dps, numero: 9999999999999999 })).toThrow('must have at most 15 digits');
+  });
+
+  it('throws for valor without two decimal places', () => {
+    expect(() => buildDpsXml({ ...dps, servico: { ...dps.servico, valor: '10' } })).toThrow('must match format');
+  });
 });
 
 describe('buildCancelEventXml', () => {
@@ -69,6 +81,17 @@ describe('buildCancelEventXml', () => {
     expect(xml).toContain(`<infPedReg Id="${id}">`);
     expect(xml).toContain(`<chNFSe>${chave}</chNFSe>`);
     expect(xml).toContain('<e101101><xDesc>Cancelamento de NFS-e</xDesc><cMotivo>9</cMotivo><xMotivo>Erro de digitação</xMotivo></e101101>');
+  });
+
+  it('throws for a 49-char chaveAcesso (must be exactly 50)', () => {
+    const chave = '1'.repeat(49);
+    expect(() => buildCancelEventXml({
+      ambiente: 'homologacao',
+      chaveAcesso: chave,
+      cnpjAutor: '12345678000199',
+      motivo: 'Erro',
+      dataEvento: new Date('2026-09-11T13:00:00Z'),
+    })).toThrow('must have exactly 50 digits');
   });
 });
 
