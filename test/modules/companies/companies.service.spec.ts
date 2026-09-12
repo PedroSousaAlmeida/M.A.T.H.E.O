@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
-import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, HttpException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { CompaniesService } from '@/modules/companies/companies.service';
 import { CertificateVault } from '@/modules/nfse/crypto/certificate-vault';
@@ -20,6 +20,8 @@ const baseCompany = {
   certificatePfx: null,
   certificatePass: null,
   certificateExpiry: null,
+  plan: 'TRIAL',
+  trialEndsAt: new Date(Date.now() + 86400000),
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -49,7 +51,9 @@ describe('CompaniesService', () => {
       prisma.company.findUnique.mockResolvedValue(null);
       prisma.company.create.mockResolvedValue(baseCompany);
       const result = await service.create(userId, createDto);
-      expect(prisma.company.create).toHaveBeenCalledWith({ data: { ...createDto, userId } });
+      const callArgs = prisma.company.create.mock.calls[0][0].data;
+      expect(callArgs).toMatchObject({ ...createDto, userId, plan: 'TRIAL' });
+      expect(callArgs.trialEndsAt).toBeInstanceOf(Date);
       expect(result.hasCertificate).toBe(false);
       expect(result).not.toHaveProperty('certificatePfx');
     });
@@ -137,6 +141,38 @@ describe('CompaniesService', () => {
     it('throws 422 when the certificate is expired', async () => {
       prisma.company.findUnique.mockResolvedValue({ ...baseCompany, certificatePfx: Buffer.from('x'), certificatePass: 'enc:p', certificateExpiry: new Date('2020-01-01') });
       await expect(service.getCompanyWithCertificate(userId)).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+  });
+
+  describe('trial', () => {
+    it('create starts a 30-day TRIAL', async () => {
+      prisma.company.findUnique.mockResolvedValue(null);
+      prisma.company.create.mockImplementation(async ({ data }: any) => ({ ...baseCompany, ...data }));
+      const before = Date.now();
+      const result = await service.create(userId, createDto);
+      const data = prisma.company.create.mock.calls[0][0].data;
+      expect(data.plan).toBe('TRIAL');
+      const expected = before + 30 * 24 * 3600 * 1000;
+      expect(Math.abs(data.trialEndsAt.getTime() - expected)).toBeLessThan(5000);
+      expect(result.plan).toBe('TRIAL');
+      expect(result.trialEndsAt).toBeInstanceOf(Date);
+    });
+
+    it('assertCanEmit passes for an active trial and for ACTIVE plans', () => {
+      expect(() => service.assertCanEmit({ plan: 'TRIAL', trialEndsAt: new Date(Date.now() + 1000) })).not.toThrow();
+      expect(() => service.assertCanEmit({ plan: 'ACTIVE', trialEndsAt: new Date(0) })).not.toThrow();
+    });
+
+    it('assertCanEmit throws 402 for an expired trial', () => {
+      const trialEndsAt = new Date(Date.now() - 1000);
+      try {
+        service.assertCanEmit({ plan: 'TRIAL', trialEndsAt });
+        throw new Error('did not throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect((error as HttpException).getStatus()).toBe(402);
+        expect((error as HttpException).getResponse()).toEqual({ message: 'Trial expired', details: { trialEndsAt } });
+      }
     });
   });
 });

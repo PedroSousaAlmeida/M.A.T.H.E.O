@@ -1,11 +1,13 @@
-import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { Company } from '../../../generated/prisma/client';
+import { ConflictException, HttpException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import type { Company, Plan } from '../../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadCertificate, type LoadedCertificate } from '../nfse/certificate';
 import { CertificateVault } from '../nfse/crypto/certificate-vault';
 import { InvalidCertificateError } from '../nfse/errors';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+
+export const TRIAL_DAYS = 30;
 
 export interface CompanyResponse {
   id: string;
@@ -17,6 +19,8 @@ export interface CompanyResponse {
   telefone: string | null;
   hasCertificate: boolean;
   certificateExpiry: Date | null;
+  plan: Plan;
+  trialEndsAt: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,7 +37,7 @@ export class CompaniesService {
     if (existing) throw new ConflictException('User already has a company');
 
     try {
-      const company = await this.prisma.company.create({ data: { ...dto, userId } });
+      const company = await this.prisma.company.create({ data: { ...dto, userId, plan: 'TRIAL', trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 3600 * 1000) } });
       return this.toResponse(company);
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
@@ -94,6 +98,13 @@ export class CompaniesService {
     return { company, certificate: loadCertificate(pfx, password) };
   }
 
+  /** Emission is the only feature gated by the trial. */
+  assertCanEmit(company: Pick<Company, 'plan' | 'trialEndsAt'>): void {
+    if (company.plan === 'TRIAL' && company.trialEndsAt.getTime() < Date.now()) {
+      throw new HttpException({ message: 'Trial expired', details: { trialEndsAt: company.trialEndsAt } }, 402);
+    }
+  }
+
   private async findEntity(userId: string): Promise<Company> {
     const company = await this.prisma.company.findUnique({ where: { userId } });
     if (!company) throw new NotFoundException('Company not found');
@@ -111,6 +122,8 @@ export class CompaniesService {
       telefone: company.telefone,
       hasCertificate: Boolean(company.certificatePfx),
       certificateExpiry: company.certificateExpiry,
+      plan: company.plan,
+      trialEndsAt: company.trialEndsAt,
       createdAt: company.createdAt,
       updatedAt: company.updatedAt,
     };
