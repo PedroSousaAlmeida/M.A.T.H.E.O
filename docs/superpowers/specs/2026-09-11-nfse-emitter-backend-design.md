@@ -37,8 +37,8 @@ necessário para emitir uma nota ponta a ponta fica fora.
 | Emissão | Síncrona: request → API Nacional → resposta. Sem fila |
 | Multi-tenant | 1 usuário = 1 empresa no MVP |
 | Certificado | `.pfx` + senha guardados criptografados (AES-256-GCM, chave em env) |
-| Testes | Jest; specs em `test/` espelhando `src/`; mocks, sem banco real (exceto um e2e mínimo) |
-| Tooling | pnpm, `class-validator`/`class-transformer` nos DTOs, validação de env na subida |
+| Testes | `bun test` (API compatível com Jest); specs em `test/` espelhando `src/`; mocks, sem banco real (exceto um e2e mínimo) |
+| Runtime / tooling | **Bun** como runtime (`bun run`), gerenciador de pacotes e test runner. Fallback se o Nest apresentar problema no Bun: Bun só como gerenciador, Node como runtime. `class-validator`/`class-transformer` nos DTOs, validação de env na subida |
 | Idioma do código | Inglês, com termos fiscais em português (`dps`, `nfse`, `tomador`, `chaveAcesso`) |
 | Infra local | `docker-compose`: `postgres`, `logto` (com seu próprio Postgres), `api` |
 
@@ -89,7 +89,7 @@ test/
         └── fake-nfse.gateway.spec.ts
 ```
 
-Jest: `roots: ['<rootDir>/test']`, alias `@/` → `src/`. Nenhum `.spec.ts`
+`bun test` configurado em `bunfig.toml` (`root = "test"`), alias `@/` → `src/` via `tsconfig` `paths`. Nenhum `.spec.ts`
 dentro de `src/`.
 
 ## 6. Componentes
@@ -101,7 +101,7 @@ dentro de `src/`.
 | `InvoicesService` | Valida entrada, carrega empresa + certificado, chama o gateway, persiste `Invoice` | `PrismaService`, `NfseGateway`, `CertificateVault` |
 | `NfseGateway` (interface) | `emit(dps, cert) → { chaveAcesso, numeroNfse, xmlDps, xmlNfse }`, `get(chave)`, `cancel(chave, motivo, cert)`, `pdf(chave, cert) → Buffer` | — |
 | `FakeNfseGateway` | Implementação em memória; sucesso por padrão, rejeição configurável | — |
-| `NationalNfseGateway` | HTTP real: agente https com `pfx` (mTLS), DPS assinada, gzip + base64 conforme leiaute; traduz respostas em `NfseRejectedError` / `NfseUnavailableError` | `DpsBuilder`, `XmlSigner`, axios/https |
+| `NationalNfseGateway` | HTTP real: mTLS com o certificado convertido de pfx para PEM (`cert` + `key`, via `node-forge`) — evita depender do suporte a `pfx` do runtime; DPS assinada, gzip + base64 conforme leiaute; traduz respostas em `NfseRejectedError` / `NfseUnavailableError` | `DpsBuilder`, `XmlSigner`, `node-forge`, `fetch`/`node:https` |
 | `DpsBuilder` | Dados tipados → XML da DPS (leiaute nacional). Função pura | — |
 | `XmlSigner` | Assina XML (XML-DSig) com a chave do A1 | `xml-crypto`, `node-forge` (abrir pfx) |
 | `CertificateVault` | `encrypt(buffer)` / `decrypt(buffer)` AES-256-GCM (`iv + tag + ciphertext`) | `CERT_ENCRYPTION_KEY` |
@@ -232,7 +232,7 @@ já deixa isso possível.
 
 ## 11. Testes
 
-Todos em `test/`, Jest, dependências mockadas (`PrismaService`,
+Todos em `test/`, `bun test`, dependências mockadas (`PrismaService`,
 `NfseGateway`, `CertificateVault`). Sem banco real nos unitários.
 
 | Spec | Casos |
