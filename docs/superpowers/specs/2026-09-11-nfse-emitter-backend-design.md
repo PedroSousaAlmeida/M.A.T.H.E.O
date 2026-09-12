@@ -172,7 +172,7 @@ model Invoice {
 
 ## 8. Endpoints
 
-Todos exigem `Authorization: Bearer <JWT Logto>`. A empresa é sempre
+Todas as rotas (inclusive `/health`) ficam sob o prefixo global **`/api/v0`** (`app.setGlobalPrefix('api/v0')`); as tabelas abaixo omitem o prefixo. Todos exigem `Authorization: Bearer <JWT Logto>`. A empresa é sempre
 resolvida pelo `userId` do token — nunca por id na URL.
 
 ### Companies

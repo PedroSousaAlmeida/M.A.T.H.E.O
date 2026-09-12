@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum InvoiceStatus {
+  PENDING
+  ISSUED
+  REJECTED
+  CANCELLED
+}
+
+enum Plan {
+  TRIAL
+  ACTIVE
+}
+
+model Company {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  cnpj               String    @unique
+  razaoSocial        String
+  inscricaoMunicipal String?
+  codigoMunicipio    String
+  email              String?
+  telefone           String?
+  certificatePfx     Bytes?
+  certificatePass    String?
+  certificateExpiry  DateTime?
+  plan               Plan      @default(TRIAL)
+  trialEndsAt        DateTime
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  invoices           Invoice[]
+  customers          Customer[]
+
+  @@map("companies")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  documento String
+  nome      String
+  email     String?
+  telefone  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  invoices  Invoice[]
+
+  @@unique([companyId, documento])
+  @@index([companyId, nome])
+  @@map("customers")
+}
+
+model Invoice {
+  id               String        @id @default(uuid())
+  companyId        String
+  company          Company       @relation(fields: [companyId], references: [id])
+  customerId       String?
+  customer         Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status           InvoiceStatus @default(PENDING)
+  dpsNumero        Int
+  dpsSerie         String        @default("1")
+  tomadorDocumento String
+  tomadorNome      String
+  tomadorEmail     String?
+  descricao        String
+  valor            Decimal       @db.Decimal(12, 2)
+  codigoTributacao String
+  chaveAcesso      String?       @unique
+  numeroNfse       String?
+  xmlDps           String?
+  xmlNfse          String?
+  rejectionReason  String?
+  cancelledAt      DateTime?
+  cancelReason     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([companyId, dpsSerie, dpsNumero])
+  @@index([companyId, status])
+  @@map("invoices")
+}
