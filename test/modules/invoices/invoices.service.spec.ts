@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
-import { BadGatewayException, ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, ConflictException, HttpException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { CompaniesService } from '@/modules/companies/companies.service';
+import { CustomersService } from '@/modules/customers/customers.service';
 import { InvoicesService } from '@/modules/invoices/invoices.service';
 import { NfseRejectedError, NfseUnavailableError } from '@/modules/nfse/errors';
 import { NFSE_GATEWAY } from '@/modules/nfse/nfse-gateway';
@@ -14,7 +15,7 @@ const company = { id: 'c1', userId, cnpj: '12345678000199', inscricaoMunicipal: 
 const certificate = { certPem: 'CERT', keyPem: 'KEY', chainPem: [], notBefore: new Date(0), notAfter: new Date(9e12), subjectCn: 'X' };
 const dto = { tomadorDocumento: '12345678909', tomadorNome: 'Cliente', descricao: 'Serviço', valor: 150, codigoTributacao: '01.01.01' };
 const pendingRow = {
-  id: 'i1', companyId: 'c1', status: 'PENDING', dpsNumero: 4, dpsSerie: '1',
+  id: 'i1', companyId: 'c1', customerId: null, status: 'PENDING', dpsNumero: 4, dpsSerie: '1',
   tomadorDocumento: '12345678909', tomadorNome: 'Cliente', tomadorEmail: null,
   descricao: 'Serviço', valor: '150.00', codigoTributacao: '01.01.01',
   chaveAcesso: null, numeroNfse: null, xmlDps: null, xmlNfse: null, rejectionReason: null,
@@ -26,7 +27,8 @@ describe('InvoicesService', () => {
   let service: InvoicesService;
   let prisma: ReturnType<typeof createPrismaMock>;
   let gateway: { emit: ReturnType<typeof mock>; cancel: ReturnType<typeof mock>; pdf: ReturnType<typeof mock> };
-  let companies: { getCompanyWithCertificate: ReturnType<typeof mock>; findMine: ReturnType<typeof mock> };
+  let companies: { getCompanyWithCertificate: ReturnType<typeof mock>; findMine: ReturnType<typeof mock>; assertCanEmit: ReturnType<typeof mock> };
+  let customers: { findEntity: ReturnType<typeof mock>; findOrCreateByDocumento: ReturnType<typeof mock> };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
@@ -34,12 +36,15 @@ describe('InvoicesService', () => {
     companies = {
       getCompanyWithCertificate: mock(async () => ({ company, certificate })),
       findMine: mock(async () => ({ id: 'c1' })),
+      assertCanEmit: mock(),
     };
+    customers = { findEntity: mock(), findOrCreateByDocumento: mock() };
     const moduleRef = await Test.createTestingModule({
       providers: [
         InvoicesService,
         { provide: PrismaService, useValue: prisma },
         { provide: CompaniesService, useValue: companies },
+        { provide: CustomersService, useValue: customers },
         { provide: NFSE_GATEWAY, useValue: gateway },
         { provide: ConfigService, useValue: { get: () => 'fake' } },
       ],
@@ -123,6 +128,52 @@ describe('InvoicesService', () => {
       await expect(service.emit(userId, dto)).rejects.toBe(persistError);
       expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
       expect(gateway.emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('blocks emission with 402 when the trial expired and creates nothing', async () => {
+      companies.assertCanEmit.mockImplementation(() => { throw new HttpException({ message: 'Trial expired' }, 402); });
+      await expect(service.emit(userId, dto)).rejects.toBeInstanceOf(HttpException);
+      expect(prisma.invoice.create).not.toHaveBeenCalled();
+      expect(gateway.emit).not.toHaveBeenCalled();
+    });
+
+    it('emits by customerId, copying the customer data and storing customerId', async () => {
+      customers.findEntity.mockResolvedValue({ id: 'cu1', companyId: 'c1', documento: '98765432000100', nome: 'Empresa Cliente', email: 'e@x.com' });
+      prisma.invoice.create.mockImplementation(async ({ data }: any) => ({ ...pendingRow, ...data }));
+      gateway.emit.mockResolvedValue(emitResult);
+      prisma.invoice.update.mockImplementation(async ({ data }: any) => ({ ...pendingRow, ...data }));
+
+      await service.emit(userId, { customerId: 'cu1', descricao: 'Serviço', valor: 10, codigoTributacao: '01.01.01' });
+
+      expect(customers.findEntity).toHaveBeenCalledWith(userId, 'cu1');
+      expect(prisma.invoice.create.mock.calls[0][0].data).toMatchObject({
+        customerId: 'cu1', tomadorDocumento: '98765432000100', tomadorNome: 'Empresa Cliente', tomadorEmail: 'e@x.com',
+      });
+      expect(gateway.emit.mock.calls[0][0].tomador).toEqual({ documento: '98765432000100', nome: 'Empresa Cliente', email: 'e@x.com' });
+    });
+
+    it('propagates 404 when the customer belongs to another company', async () => {
+      customers.findEntity.mockRejectedValue(new NotFoundException());
+      await expect(service.emit(userId, { customerId: 'x', descricao: 'S', valor: 1, codigoTributacao: '01.01.01' })).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('saveCustomer creates (or reuses) the customer and stores its id', async () => {
+      customers.findOrCreateByDocumento.mockResolvedValue({ id: 'cu9', documento: '12345678909', nome: 'Cliente', email: null });
+      gateway.emit.mockResolvedValue(emitResult);
+      prisma.invoice.update.mockResolvedValue({ ...pendingRow, status: 'ISSUED', customerId: 'cu9' });
+
+      await service.emit(userId, { ...dto, saveCustomer: true });
+
+      expect(customers.findOrCreateByDocumento).toHaveBeenCalledWith('c1', { documento: '12345678909', nome: 'Cliente', email: null });
+      expect(prisma.invoice.create.mock.calls[0][0].data.customerId).toBe('cu9');
+    });
+
+    it('rejects a body with neither customerId nor tomador*, or with both', async () => {
+      await expect(service.emit(userId, { descricao: 'S', valor: 1, codigoTributacao: '01.01.01' })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.emit(userId, { ...dto, customerId: 'cu1' })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.emit(userId, { customerId: 'cu1', saveCustomer: true, descricao: 'S', valor: 1, codigoTributacao: '01.01.01' })).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.invoice.create).not.toHaveBeenCalled();
     });
   });
 

@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -12,6 +13,7 @@ import type { Invoice, Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompaniesService } from '../companies/companies.service';
+import { CustomersService } from '../customers/customers.service';
 import { NfseRejectedError, NfseUnavailableError } from '../nfse/errors';
 import { NFSE_GATEWAY, type DpsData, type NfseAmbiente, type NfseGateway } from '../nfse/nfse-gateway';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -29,6 +31,7 @@ export class InvoicesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly companies: CompaniesService,
+    private readonly customers: CustomersService,
     @Inject(NFSE_GATEWAY) private readonly gateway: NfseGateway,
     config: ConfigService<Env, true>,
   ) {
@@ -37,6 +40,8 @@ export class InvoicesService {
 
   async emit(userId: string, dto: CreateInvoiceDto): Promise<InvoiceResponse> {
     const { company, certificate } = await this.companies.getCompanyWithCertificate(userId);
+    this.companies.assertCanEmit(company);
+    const tomador = await this.resolveTomador(userId, company.id, dto);
     const valor = dto.valor.toFixed(2);
 
     let invoice: Invoice;
@@ -49,12 +54,13 @@ export class InvoicesService {
         return tx.invoice.create({
           data: {
             companyId: company.id,
+            customerId: tomador.customerId,
             status: 'PENDING',
             dpsSerie: DEFAULT_SERIE,
             dpsNumero: (_max.dpsNumero ?? 0) + 1,
-            tomadorDocumento: dto.tomadorDocumento,
-            tomadorNome: dto.tomadorNome,
-            tomadorEmail: dto.tomadorEmail ?? null,
+            tomadorDocumento: tomador.documento,
+            tomadorNome: tomador.nome,
+            tomadorEmail: tomador.email,
             descricao: dto.descricao,
             valor,
             codigoTributacao: dto.codigoTributacao,
@@ -169,6 +175,34 @@ export class InvoicesService {
     const invoice = await this.prisma.invoice.findFirst({ where: { id, companyId } });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
+  }
+
+  /**
+   * Exactly one of `customerId` or `tomador*` identifies the tomador. The invoice always stores a copy
+   * of the data; `customerId` is kept only as a reference.
+   */
+  private async resolveTomador(
+    userId: string,
+    companyId: string,
+    dto: CreateInvoiceDto,
+  ): Promise<{ customerId: string | null; documento: string; nome: string; email: string | null }> {
+    const hasInline = Boolean(dto.tomadorDocumento || dto.tomadorNome);
+    if (dto.customerId && hasInline) throw new BadRequestException('Provide either customerId or tomador* fields, not both');
+    if (dto.customerId && dto.saveCustomer) throw new BadRequestException('saveCustomer only applies to tomador* fields');
+
+    if (dto.customerId) {
+      const customer = await this.customers.findEntity(userId, dto.customerId);
+      return { customerId: customer.id, documento: customer.documento, nome: customer.nome, email: customer.email };
+    }
+    if (!dto.tomadorDocumento || !dto.tomadorNome) {
+      throw new BadRequestException('Provide customerId or tomadorDocumento + tomadorNome');
+    }
+    const inline = { documento: dto.tomadorDocumento, nome: dto.tomadorNome, email: dto.tomadorEmail ?? null };
+    if (dto.saveCustomer) {
+      const customer = await this.customers.findOrCreateByDocumento(companyId, inline);
+      return { customerId: customer.id, ...inline };
+    }
+    return { customerId: null, ...inline };
   }
 
   /**
