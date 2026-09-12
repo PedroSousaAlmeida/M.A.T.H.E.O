@@ -62,16 +62,22 @@ export class FakeNfseGateway implements NfseGateway {
     _certificate: LoadedCertificate,
   ): Promise<void> {
     this.consumeRejection();
-    if (!this.emitted.has(chaveAcesso)) {
-      throw new NfseRejectedError('E9999', 'NFS-e não encontrada');
-    }
+    this.assertChave(chaveAcesso);
   }
 
   async pdf(chaveAcesso: string, _certificate: LoadedCertificate): Promise<Buffer> {
-    if (!this.emitted.has(chaveAcesso)) {
+    this.assertChave(chaveAcesso);
+    return buildMinimalPdf(['DANFSe (FAKE - NFSE_ENV=fake)', `Chave de acesso: ${chaveAcesso}`, 'Documento sem valor fiscal.']);
+  }
+
+  /**
+   * `emitted` exists only for test introspection; cancel/pdf must not depend on it,
+   * otherwise an API restart would "forget" notes that are persisted in the database.
+   */
+  private assertChave(chaveAcesso: string) {
+    if (!/^\d{50}$/.test(chaveAcesso)) {
       throw new NfseRejectedError('E9999', 'NFS-e não encontrada');
     }
-    return buildMinimalPdf(['DANFSe (FAKE - NFSE_ENV=fake)', `Chave de acesso: ${chaveAcesso}`, 'Documento sem valor fiscal.']);
   }
 
   private consumeRejection() {

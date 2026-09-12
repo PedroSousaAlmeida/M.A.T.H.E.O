@@ -37,11 +37,12 @@ describe('FakeNfseGateway', () => {
     await expect(gateway.emit(dps, certificate)).resolves.toBeDefined();
   });
 
-  it('cancels an emitted note and rejects unknown keys', async () => {
+  it('cancels a well-formed chave (even from another instance) and rejects malformed ones', async () => {
     const gateway = new FakeNfseGateway();
     const { chaveAcesso } = await gateway.emit(dps, certificate);
     await expect(gateway.cancel(chaveAcesso, 'erro', dps, certificate)).resolves.toBeUndefined();
-    await expect(gateway.cancel('0'.repeat(50), 'erro', dps, certificate)).rejects.toBeInstanceOf(NfseRejectedError);
+    await expect(new FakeNfseGateway().cancel(chaveAcesso, 'erro', dps, certificate)).resolves.toBeUndefined();
+    await expect(gateway.cancel('abc', 'erro', dps, certificate)).rejects.toBeInstanceOf(NfseRejectedError);
   });
 
   it('returns a PDF buffer for an emitted note', async () => {
