@@ -85,9 +85,15 @@ export class NationalNfseGateway implements NfseGateway {
     if (!json.chaveAcesso || !json.nfseXmlGZipB64) {
       throw new NfseUnavailableError('Unexpected response from national API: missing chaveAcesso/nfseXmlGZipB64');
     }
+    if (!/^\d{50}$/.test(json.chaveAcesso)) {
+      throw new NfseUnavailableError('Unexpected chaveAcesso format from national API');
+    }
     const xmlNfse = gunzipB64(json.nfseXmlGZipB64);
-    const numeroNfse = /<nNFSe>(\d+)<\/nNFSe>/.exec(xmlNfse)?.[1] ?? '';
-    return { chaveAcesso: json.chaveAcesso, numeroNfse, xmlDps, xmlNfse };
+    const numeroNfseMatch = /<nNFSe>(\d+)<\/nNFSe>/.exec(xmlNfse);
+    if (!numeroNfseMatch) {
+      throw new NfseUnavailableError('Unexpected response from national API: missing nNFSe');
+    }
+    return { chaveAcesso: json.chaveAcesso, numeroNfse: numeroNfseMatch[1], xmlDps, xmlNfse };
   }
 
   async cancel(
@@ -96,6 +102,7 @@ export class NationalNfseGateway implements NfseGateway {
     dps: Pick<DpsData, 'ambiente' | 'prestador'>,
     certificate: LoadedCertificate,
   ): Promise<void> {
+    this.assertValidChaveArg(chaveAcesso);
     const { xml } = buildCancelEventXml({
       ambiente: dps.ambiente,
       chaveAcesso,
@@ -114,6 +121,7 @@ export class NationalNfseGateway implements NfseGateway {
   }
 
   async pdf(chaveAcesso: string, certificate: LoadedCertificate): Promise<Buffer> {
+    this.assertValidChaveArg(chaveAcesso);
     const response = await this.send({
       method: 'GET',
       url: `${this.urls.adn}/DANFSE/${chaveAcesso}`,
@@ -121,6 +129,13 @@ export class NationalNfseGateway implements NfseGateway {
       certificate,
     });
     return response.body;
+  }
+
+  /** Validates a chaveAcesso passed in by the caller (as opposed to one received from the API). */
+  private assertValidChaveArg(chaveAcesso: string): void {
+    if (!/^\d{50}$/.test(chaveAcesso)) {
+      throw new NfseRejectedError('INVALID_CHAVE', 'chaveAcesso must be 50 digits');
+    }
   }
 
   private async send(input: {

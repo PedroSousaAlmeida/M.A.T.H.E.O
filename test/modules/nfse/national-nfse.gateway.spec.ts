@@ -69,6 +69,24 @@ describe('NationalNfseGateway', () => {
       const down = new NationalNfseGateway(urls, async () => { throw new Error('ECONNRESET'); });
       await expect(down.emit(dps, certificate)).rejects.toBeInstanceOf(NfseUnavailableError);
     });
+
+    it('throws NfseUnavailableError when the API returns a malformed chaveAcesso', async () => {
+      const { transport } = fakeTransport(() => ({
+        status: 201,
+        body: Buffer.from(JSON.stringify({ chaveAcesso: 'abc', nfseXmlGZipB64: gz(nfseXml) })),
+      }));
+      const gateway = new NationalNfseGateway(urls, transport);
+      await expect(gateway.emit(dps, certificate)).rejects.toBeInstanceOf(NfseUnavailableError);
+    });
+
+    it('throws NfseUnavailableError when the returned NFS-e XML has no nNFSe', async () => {
+      const { transport } = fakeTransport(() => ({
+        status: 201,
+        body: Buffer.from(JSON.stringify({ chaveAcesso: chave, nfseXmlGZipB64: gz('<NFSe/>') })),
+      }));
+      const gateway = new NationalNfseGateway(urls, transport);
+      await expect(gateway.emit(dps, certificate)).rejects.toBeInstanceOf(NfseUnavailableError);
+    });
   });
 
   describe('cancel', () => {
@@ -91,6 +109,13 @@ describe('NationalNfseGateway', () => {
       const pdf = await gateway.pdf(chave, certificate);
       expect(calls[0]).toMatchObject({ method: 'GET', url: `${urls.adn}/DANFSE/${chave}`, accept: 'application/pdf' });
       expect(pdf.toString()).toBe('%PDF-1.4');
+    });
+
+    it('rejects a malformed chaveAcesso without calling the transport', async () => {
+      const { transport, calls } = fakeTransport(() => ({ status: 200, body: Buffer.from('%PDF-1.4') }));
+      const gateway = new NationalNfseGateway(urls, transport);
+      await expect(gateway.pdf('123', certificate)).rejects.toBeInstanceOf(NfseRejectedError);
+      expect(calls.length).toBe(0);
     });
   });
 });
