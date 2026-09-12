@@ -89,18 +89,8 @@ export class InvoicesService {
           where: { id: invoice.id },
           data: { status: 'REJECTED', rejectionReason: `${error.code}: ${error.message}` },
         });
-        throw new UnprocessableEntityException({
-          message: 'NFS-e rejected by the national API',
-          details: { invoiceId: invoice.id, code: error.code, reason: error.message },
-        });
       }
-      if (error instanceof NfseUnavailableError) {
-        throw new BadGatewayException({
-          message: 'National NFS-e API unavailable; invoice kept as PENDING',
-          details: { invoiceId: invoice.id },
-        });
-      }
-      throw error;
+      this.mapGatewayError(error, invoice.id, 'NFS-e rejected by the national API', 'National NFS-e API unavailable; invoice kept as PENDING');
     }
   }
 
@@ -147,16 +137,7 @@ export class InvoicesService {
         certificate,
       );
     } catch (error) {
-      if (error instanceof NfseRejectedError) {
-        throw new UnprocessableEntityException({
-          message: 'Cancellation rejected by the national API',
-          details: { invoiceId: invoice.id, code: error.code, reason: error.message },
-        });
-      }
-      if (error instanceof NfseUnavailableError) {
-        throw new BadGatewayException({ message: 'National NFS-e API unavailable', details: { invoiceId: invoice.id } });
-      }
-      throw error;
+      this.mapGatewayError(error, invoice.id, 'Cancellation rejected by the national API', 'National NFS-e API unavailable');
     }
 
     const cancelled = await this.prisma.invoice.update({
@@ -173,10 +154,7 @@ export class InvoicesService {
     try {
       return await this.gateway.pdf(invoice.chaveAcesso, certificate);
     } catch (error) {
-      if (error instanceof NfseUnavailableError) {
-        throw new BadGatewayException({ message: 'National NFS-e API unavailable', details: { invoiceId: invoice.id } });
-      }
-      throw error;
+      this.mapGatewayError(error, invoice.id, 'PDF request rejected by the national API', 'National NFS-e API unavailable');
     }
   }
 
@@ -185,6 +163,19 @@ export class InvoicesService {
     const invoice = await this.prisma.invoice.findFirst({ where: { id, companyId } });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
+  }
+
+  private mapGatewayError(error: unknown, invoiceId: string, rejectedMessage: string, unavailableMessage: string): never {
+    if (error instanceof NfseRejectedError) {
+      throw new UnprocessableEntityException({
+        message: rejectedMessage,
+        details: { invoiceId, code: error.code, reason: error.message },
+      });
+    }
+    if (error instanceof NfseUnavailableError) {
+      throw new BadGatewayException({ message: unavailableMessage, details: { invoiceId } });
+    }
+    throw error;
   }
 
   protected toResponse(invoice: Invoice): InvoiceResponse {

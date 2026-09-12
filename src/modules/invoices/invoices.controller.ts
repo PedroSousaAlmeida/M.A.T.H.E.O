@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, StreamableFile, UseGuards } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, StreamableFile } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { CancelInvoiceDto } from './dto/cancel-invoice.dto';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -11,7 +11,6 @@ export class InvoicesController {
   constructor(private readonly invoices: InvoicesService) {}
 
   @Post()
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   emit(@CurrentUser() user: AuthUser, @Body() dto: CreateInvoiceDto) {
     return this.invoices.emit(user.id, dto);

@@ -187,5 +187,11 @@ describe('InvoicesService', () => {
       prisma.invoice.findFirst.mockResolvedValue(pendingRow);
       await expect(service.getPdf(userId, 'i1')).rejects.toBeInstanceOf(NotFoundException);
     });
+
+    it('throws 502 when the API is unavailable', async () => {
+      prisma.invoice.findFirst.mockResolvedValue({ ...pendingRow, status: 'ISSUED', chaveAcesso: '1'.repeat(50) });
+      gateway.pdf.mockRejectedValue(new NfseUnavailableError());
+      await expect(service.getPdf(userId, 'i1')).rejects.toBeInstanceOf(BadGatewayException);
+    });
   });
 });
