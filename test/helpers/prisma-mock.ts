@@ -1,0 +1,13 @@
+import { mock } from 'bun:test';
+import type { PrismaService } from '@/prisma/prisma.service';
+
+export function createPrismaMock() {
+  const prisma = {
+    company: { findUnique: mock(), create: mock(), update: mock() },
+    invoice: { findMany: mock(), findFirst: mock(), create: mock(), update: mock(), count: mock(), aggregate: mock() },
+    $transaction: mock(),
+  };
+  // Default: run the callback with the same mock as the transaction client
+  prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+  return prisma as typeof prisma & PrismaService;
+}

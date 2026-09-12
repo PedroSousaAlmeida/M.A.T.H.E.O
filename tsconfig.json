@@ -4,7 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022"],
-    "types": ["bun-types", "node"],
+    "types": ["bun-types", "node", "multer"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "strict": true,
