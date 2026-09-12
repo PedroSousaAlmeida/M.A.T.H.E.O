@@ -19,6 +19,7 @@ Um MEI (microempreendedor) cadastra sua empresa e o certificado digital uma vez,
 - **Logto** cuida de cadastro e login. O frontend nunca lida com senha: redireciona para o Logto (SDK `@logto/react`, `@logto/vue` ou `@logto/browser`) e recebe um *access token* para o **API resource** `https://api.matheo.local`.
 - A API só valida o token. O `sub` do token identifica o usuário. **1 usuário = 1 empresa** nesta versão.
 - Todas as rotas ficam sob **`/api/v0`**. Todas exigem `Authorization: Bearer <token>`, exceto `GET /health`.
+- `GET /health` (público) devolve `{ status, version, stage, apiVersion, environment, nfseEnv, commit, runtime, uptimeSeconds, timestamp, checks.database }` — o front pode mostrar `version`/`stage` no rodapé e usar `status` (`ok`/`degraded`, HTTP 200/503) numa página de status.
 
 ### 2.1 Configuração do Logto para a SPA
 

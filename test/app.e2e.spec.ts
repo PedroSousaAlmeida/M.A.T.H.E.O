@@ -62,7 +62,8 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
   it('GET /api/v0/health returns ok without a token', async () => {
     const res = await request(app.getHttpServer()).get('/api/v0/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body).toMatchObject({ status: 'ok', apiVersion: 'v0', stage: 'alpha', checks: { database: { status: 'ok' } } });
+    expect(res.body.version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it('rejects requests without a token', async () => {

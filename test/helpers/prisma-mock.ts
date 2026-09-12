@@ -7,6 +7,7 @@ export function createPrismaMock() {
     invoice: { findMany: mock(), findFirst: mock(), create: mock(), update: mock(), count: mock(), aggregate: mock() },
     customer: { findUnique: mock(), findFirst: mock(), findMany: mock(), create: mock(), update: mock(), upsert: mock(), delete: mock(), count: mock() },
     $transaction: mock(),
+    $queryRaw: mock(),
   };
   // Default: run the callback with the same mock as the transaction client
   prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));

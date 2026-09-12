@@ -13,6 +13,9 @@ const schema = z
     NFSE_ENV: z.enum(['fake', 'producao-restrita', 'producao']).default('fake'),
     NFSE_SEFIN_URL: z.url().optional(),
     NFSE_ADN_URL: z.url().optional(),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    APP_STAGE: z.enum(['alpha', 'beta', 'rc', 'stable']).optional(),
+    GIT_COMMIT: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NFSE_ENV !== 'fake') {

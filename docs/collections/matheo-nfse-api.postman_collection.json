@@ -143,7 +143,8 @@
               "path": [
                 "health"
               ]
-            }
+            },
+            "description": "Publico. 200 com versao/stage/apiVersion/ambiente/runtime/uptime e check de banco; 503 (status degraded) se o banco falhar."
           },
           "response": []
         }

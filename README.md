@@ -40,6 +40,10 @@ bun run scripts/dev-certificate.ts dev-cert.pfx dev-password
 
 e envie em `PUT /api/v0/companies/me/certificate` (form-data: `file` + `password`). Arquivos `*.pfx` são ignorados pelo git. Esse certificado **não** é ICP-Brasil e será rejeitado pela API Nacional real.
 
+## Health
+
+`GET /api/v0/health` (público) devolve versão (`package.json`), `stage` (`alpha` enquanto a versão for 0.x; force com `APP_STAGE`), `apiVersion`, ambiente, `nfseEnv`, `commit` (`GIT_COMMIT`, injetado no build Docker via `--build-arg GIT_COMMIT=$(git rev-parse --short HEAD)`), runtime, uptime e um check de banco (`SELECT 1`). Responde **503** com `status: "degraded"` se o banco falhar — serve de healthcheck de container.
+
 ## Endpoints
 
 Todas as rotas, incluindo `/health`, vivem sob o prefixo `/api/v0`.
