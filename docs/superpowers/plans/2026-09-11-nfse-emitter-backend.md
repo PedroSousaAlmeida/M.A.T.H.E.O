@@ -3339,13 +3339,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
 }
 ```
 
-`src/main.ts` — register after the pipe:
+`src/main.ts` — register after the pipe, and set the global prefix (user requirement: every route, including `/health`, lives under `/api/v0`):
 ```ts
 import { HttpExceptionFilter } from './common/http-exception.filter';
 // ...
+  app.setGlobalPrefix('api/v0');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
 ```
+The e2e test must call `app.setGlobalPrefix('api/v0')` the same way before `app.init()` and request every path with the `/api/v0` prefix (e.g. `/api/v0/companies`, `/api/v0/invoices/${id}/xml`). The README endpoint table and the "Rodar local" health URL use the prefix too (`http://localhost:3000/api/v0/health`).
 
 - [ ] **Step 4: Run the filter test to verify it passes**
 
