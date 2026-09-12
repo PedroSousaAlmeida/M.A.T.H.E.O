@@ -1,4 +1,4 @@
-import { IsEmail, IsNumber, IsOptional, IsPositive, IsString, Length, Matches } from 'class-validator';
+import { IsEmail, IsNumber, IsOptional, IsPositive, IsString, Length, Matches, Max } from 'class-validator';
 
 export class CreateInvoiceDto {
   @Matches(/^(\d{11}|\d{14})$/, { message: 'tomadorDocumento must be a CPF (11 digits) or CNPJ (14 digits)' })
@@ -18,6 +18,7 @@ export class CreateInvoiceDto {
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
+  @Max(9_999_999_999.99)
   valor: number;
 
   @Matches(/^\d{2}\.\d{2}\.\d{2}$/, { message: 'codigoTributacao must look like 01.01.01' })

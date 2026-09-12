@@ -112,7 +112,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(pdf.headers['content-type']).toContain('application/pdf');
 
     const cancelled = await request(server).post(`/api/v0/invoices/${id}/cancel`).set(auth).send({ motivo: 'Erro de digitação no valor' });
-    expect(cancelled.status).toBe(201);
+    expect(cancelled.status).toBe(200);
     expect(cancelled.body.status).toBe('CANCELLED');
 
     const other = await request(server).get(`/api/v0/invoices/${id}`).set({ Authorization: `Bearer ${await tokenFor('someone-else')}` });

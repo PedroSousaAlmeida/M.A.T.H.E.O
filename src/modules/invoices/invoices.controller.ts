@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, StreamableFile } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { CancelInvoiceDto } from './dto/cancel-invoice.dto';
@@ -39,6 +39,7 @@ export class InvoicesController {
   }
 
   @Post(':id/cancel')
+  @HttpCode(200)
   cancel(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CancelInvoiceDto) {
     return this.invoices.cancel(user.id, id, dto.motivo);
   }

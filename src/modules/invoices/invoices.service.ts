@@ -3,11 +3,12 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Invoice } from '../../../generated/prisma/client';
+import type { Invoice, Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CompaniesService } from '../companies/companies.service';
@@ -22,6 +23,7 @@ export type InvoiceResponse = Omit<Invoice, 'xmlDps' | 'xmlNfse' | 'valor'> & { 
 
 @Injectable()
 export class InvoicesService {
+  private readonly logger = new Logger(InvoicesService.name);
   private readonly ambiente: NfseAmbiente;
 
   constructor(
@@ -76,13 +78,9 @@ export class InvoicesService {
       servico: { codigoTributacao: invoice.codigoTributacao, descricao: invoice.descricao, valor },
     };
 
+    let result: Awaited<ReturnType<NfseGateway['emit']>>;
     try {
-      const result = await this.gateway.emit(dps, certificate);
-      const issued = await this.prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { status: 'ISSUED', ...result },
-      });
-      return this.toResponse(issued);
+      result = await this.gateway.emit(dps, certificate);
     } catch (error) {
       if (error instanceof NfseRejectedError) {
         await this.prisma.invoice.update({
@@ -92,6 +90,13 @@ export class InvoicesService {
       }
       this.mapGatewayError(error, invoice.id, 'NFS-e rejected by the national API', 'National NFS-e API unavailable; invoice kept as PENDING');
     }
+
+    const issued = await this.persistOutcome(
+      invoice.id,
+      { status: 'ISSUED', ...result },
+      `Invoice ${invoice.id} was issued at the national API (chaveAcesso=${result.chaveAcesso}, numeroNfse=${result.numeroNfse}) but could not be persisted; reconcile manually`,
+    );
+    return this.toResponse(issued);
   }
 
   async findAll(userId: string, query: ListInvoicesDto) {
@@ -140,10 +145,11 @@ export class InvoicesService {
       this.mapGatewayError(error, invoice.id, 'Cancellation rejected by the national API', 'National NFS-e API unavailable');
     }
 
-    const cancelled = await this.prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
-    });
+    const cancelled = await this.persistOutcome(
+      invoice.id,
+      { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
+      `Invoice ${invoice.id} was cancelled at the national API (chaveAcesso=${invoice.chaveAcesso}) but could not be persisted; reconcile manually`,
+    );
     return this.toResponse(cancelled);
   }
 
@@ -163,6 +169,24 @@ export class InvoicesService {
     const invoice = await this.prisma.invoice.findFirst({ where: { id, companyId } });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
+  }
+
+  /**
+   * Persists a status update after a national API call already succeeded (ISSUED/CANCELLED).
+   * Retries once; if it still fails, logs an alert for manual reconciliation and rethrows.
+   * Never logs XML.
+   */
+  private async persistOutcome(invoiceId: string, data: Prisma.InvoiceUpdateInput, unrecoverableLogMessage: string): Promise<Invoice> {
+    try {
+      return await this.prisma.invoice.update({ where: { id: invoiceId }, data });
+    } catch {
+      try {
+        return await this.prisma.invoice.update({ where: { id: invoiceId }, data });
+      } catch (error) {
+        this.logger.error(unrecoverableLogMessage, error instanceof Error ? error.stack : String(error));
+        throw error;
+      }
+    }
   }
 
   private mapGatewayError(error: unknown, invoiceId: string, rejectedMessage: string, unavailableMessage: string): never {

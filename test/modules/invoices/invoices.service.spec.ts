@@ -11,7 +11,7 @@ import { createPrismaMock } from '../../helpers/prisma-mock';
 
 const userId = 'user-1';
 const company = { id: 'c1', userId, cnpj: '12345678000199', inscricaoMunicipal: null, codigoMunicipio: '3550308' };
-const certificate = { certPem: 'CERT', keyPem: 'KEY', notBefore: new Date(0), notAfter: new Date(9e12), subjectCn: 'X' };
+const certificate = { certPem: 'CERT', keyPem: 'KEY', chainPem: [], notBefore: new Date(0), notAfter: new Date(9e12), subjectCn: 'X' };
 const dto = { tomadorDocumento: '12345678909', tomadorNome: 'Cliente', descricao: 'Serviço', valor: 150, codigoTributacao: '01.01.01' };
 const pendingRow = {
   id: 'i1', companyId: 'c1', status: 'PENDING', dpsNumero: 4, dpsSerie: '1',
@@ -102,6 +102,28 @@ describe('InvoicesService', () => {
       await expect(service.emit(userId, dto)).rejects.toBeInstanceOf(ConflictException);
       expect(gateway.emit).not.toHaveBeenCalled();
     });
+
+    it('retries the ISSUED update once and still returns ISSUED when the retry succeeds', async () => {
+      gateway.emit.mockResolvedValue(emitResult);
+      prisma.invoice.update.mockRejectedValueOnce(new Error('connection reset'));
+      prisma.invoice.update.mockResolvedValueOnce({ ...pendingRow, status: 'ISSUED', ...emitResult });
+
+      const result = await service.emit(userId, dto);
+
+      expect(result.status).toBe('ISSUED');
+      expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
+      expect(gateway.emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('rethrows the original error when the ISSUED update fails twice, without calling the gateway again', async () => {
+      gateway.emit.mockResolvedValue(emitResult);
+      const persistError = new Error('db is down');
+      prisma.invoice.update.mockRejectedValue(persistError);
+
+      await expect(service.emit(userId, dto)).rejects.toBe(persistError);
+      expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
+      expect(gateway.emit).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('findAll', () => {
@@ -171,6 +193,30 @@ describe('InvoicesService', () => {
       prisma.invoice.findFirst.mockResolvedValue(issuedRow);
       gateway.cancel.mockRejectedValue(new NfseUnavailableError());
       await expect(service.cancel(userId, 'i1', 'x')).rejects.toBeInstanceOf(BadGatewayException);
+    });
+
+    it('retries the CANCELLED update once and still returns CANCELLED when the retry succeeds', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(issuedRow);
+      gateway.cancel.mockResolvedValue(undefined);
+      prisma.invoice.update.mockRejectedValueOnce(new Error('connection reset'));
+      prisma.invoice.update.mockImplementationOnce(async ({ data }: any) => ({ ...issuedRow, ...data }));
+
+      const result = await service.cancel(userId, 'i1', 'x');
+
+      expect(result.status).toBe('CANCELLED');
+      expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
+      expect(gateway.cancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('rethrows the original error when the CANCELLED update fails twice, without calling the gateway again', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(issuedRow);
+      gateway.cancel.mockResolvedValue(undefined);
+      const persistError = new Error('db is down');
+      prisma.invoice.update.mockRejectedValue(persistError);
+
+      await expect(service.cancel(userId, 'i1', 'x')).rejects.toBe(persistError);
+      expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
+      expect(gateway.cancel).toHaveBeenCalledTimes(1);
     });
   });
 
