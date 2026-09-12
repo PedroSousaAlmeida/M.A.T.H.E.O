@@ -129,6 +129,57 @@ export class InvoicesService {
     return invoice.xmlNfse;
   }
 
+  async cancel(userId: string, id: string, motivo: string): Promise<InvoiceResponse> {
+    const invoice = await this.findEntity(userId, id);
+    if (invoice.status !== 'ISSUED' || !invoice.chaveAcesso) {
+      throw new ConflictException(`Only ISSUED invoices can be cancelled (current: ${invoice.status})`);
+    }
+    const { company, certificate } = await this.companies.getCompanyWithCertificate(userId);
+
+    try {
+      await this.gateway.cancel(
+        invoice.chaveAcesso,
+        motivo,
+        {
+          ambiente: this.ambiente,
+          prestador: { cnpj: company.cnpj, inscricaoMunicipal: company.inscricaoMunicipal, codigoMunicipio: company.codigoMunicipio },
+        },
+        certificate,
+      );
+    } catch (error) {
+      if (error instanceof NfseRejectedError) {
+        throw new UnprocessableEntityException({
+          message: 'Cancellation rejected by the national API',
+          details: { invoiceId: invoice.id, code: error.code, reason: error.message },
+        });
+      }
+      if (error instanceof NfseUnavailableError) {
+        throw new BadGatewayException({ message: 'National NFS-e API unavailable', details: { invoiceId: invoice.id } });
+      }
+      throw error;
+    }
+
+    const cancelled = await this.prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
+    });
+    return this.toResponse(cancelled);
+  }
+
+  async getPdf(userId: string, id: string): Promise<Buffer> {
+    const invoice = await this.findEntity(userId, id);
+    if (!invoice.chaveAcesso) throw new NotFoundException('Invoice has no NFS-e (not issued)');
+    const { certificate } = await this.companies.getCompanyWithCertificate(userId);
+    try {
+      return await this.gateway.pdf(invoice.chaveAcesso, certificate);
+    } catch (error) {
+      if (error instanceof NfseUnavailableError) {
+        throw new BadGatewayException({ message: 'National NFS-e API unavailable', details: { invoiceId: invoice.id } });
+      }
+      throw error;
+    }
+  }
+
   protected async findEntity(userId: string, id: string): Promise<Invoice> {
     const { id: companyId } = await this.companies.findMine(userId);
     const invoice = await this.prisma.invoice.findFirst({ where: { id, companyId } });

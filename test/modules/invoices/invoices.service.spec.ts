@@ -134,4 +134,58 @@ describe('InvoicesService', () => {
       await expect(service.getXml(userId, 'i1')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  describe('cancel', () => {
+    const issuedRow = { ...pendingRow, status: 'ISSUED', chaveAcesso: '1'.repeat(50), numeroNfse: '4', xmlNfse: '<NFSe/>' };
+
+    it('sends the cancel event and marks the invoice CANCELLED', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(issuedRow);
+      gateway.cancel.mockResolvedValue(undefined);
+      prisma.invoice.update.mockImplementation(async ({ data }: any) => ({ ...issuedRow, ...data }));
+
+      const result = await service.cancel(userId, 'i1', 'Erro de digitação');
+
+      const [chave, motivo, dpsCtx, cert] = gateway.cancel.mock.calls[0];
+      expect(chave).toBe(issuedRow.chaveAcesso);
+      expect(motivo).toBe('Erro de digitação');
+      expect(dpsCtx).toMatchObject({ ambiente: 'homologacao', prestador: { cnpj: '12345678000199' } });
+      expect(cert).toBe(certificate);
+      expect(prisma.invoice.update.mock.calls[0][0].data).toMatchObject({ status: 'CANCELLED', cancelReason: 'Erro de digitação' });
+      expect(result.status).toBe('CANCELLED');
+    });
+
+    it('throws 409 when the invoice is not ISSUED', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(pendingRow);
+      await expect(service.cancel(userId, 'i1', 'x')).rejects.toBeInstanceOf(ConflictException);
+      expect(gateway.cancel).not.toHaveBeenCalled();
+    });
+
+    it('throws 422 when the API rejects the cancellation and keeps the invoice ISSUED', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(issuedRow);
+      gateway.cancel.mockRejectedValue(new NfseRejectedError('E200', 'Prazo expirado'));
+      await expect(service.cancel(userId, 'i1', 'x')).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(prisma.invoice.update).not.toHaveBeenCalled();
+    });
+
+    it('throws 502 when the API is unavailable', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(issuedRow);
+      gateway.cancel.mockRejectedValue(new NfseUnavailableError());
+      await expect(service.cancel(userId, 'i1', 'x')).rejects.toBeInstanceOf(BadGatewayException);
+    });
+  });
+
+  describe('getPdf', () => {
+    it('proxies the DANFSe from the gateway', async () => {
+      prisma.invoice.findFirst.mockResolvedValue({ ...pendingRow, status: 'ISSUED', chaveAcesso: '1'.repeat(50) });
+      gateway.pdf.mockResolvedValue(Buffer.from('%PDF'));
+      const pdf = await service.getPdf(userId, 'i1');
+      expect(gateway.pdf).toHaveBeenCalledWith('1'.repeat(50), certificate);
+      expect(pdf.toString()).toBe('%PDF');
+    });
+
+    it('throws 404 when the invoice has no chaveAcesso', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(pendingRow);
+      await expect(service.getPdf(userId, 'i1')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
 });
