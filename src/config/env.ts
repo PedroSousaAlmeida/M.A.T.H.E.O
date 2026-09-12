@@ -3,15 +3,15 @@ import { z } from 'zod';
 const schema = z
   .object({
     PORT: z.coerce.number().int().positive().default(3000),
-    DATABASE_URL: z.string().url(),
-    LOGTO_ENDPOINT: z.string().url(),
+    DATABASE_URL: z.url(),
+    LOGTO_ENDPOINT: z.url(),
     LOGTO_API_RESOURCE: z.string().min(1),
     CERT_ENCRYPTION_KEY: z
       .string()
       .regex(/^[0-9a-fA-F]{64}$/, 'CERT_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex chars'),
     NFSE_ENV: z.enum(['fake', 'producao-restrita', 'producao']).default('fake'),
-    NFSE_SEFIN_URL: z.string().url().optional(),
-    NFSE_ADN_URL: z.string().url().optional(),
+    NFSE_SEFIN_URL: z.url().optional(),
+    NFSE_ADN_URL: z.url().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NFSE_ENV !== 'fake') {

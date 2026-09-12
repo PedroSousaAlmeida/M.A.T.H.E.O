@@ -14,4 +14,7 @@ async function bootstrap() {
   console.log(`API listening on http://localhost:${port}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
