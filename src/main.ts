@@ -1,0 +1,17 @@
+import 'reflect-metadata';
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { AppModule } from './app.module';
+import type { Env } from './config/env';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  const config = app.get(ConfigService<Env, true>);
+  const port = config.get('PORT', { infer: true });
+  await app.listen(port);
+  console.log(`API listening on http://localhost:${port}`);
+}
+
+bootstrap();
