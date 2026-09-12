@@ -12,6 +12,7 @@ export interface HttpRequest {
   body?: string;
   accept: string;
   certPem: string;
+  chainPem: string[];
   keyPem: string;
 }
 
@@ -38,7 +39,7 @@ export const httpsTransport: HttpTransport = (req) =>
           accept: req.accept,
           ...(req.body ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(req.body) } : {}),
         },
-        cert: req.certPem,
+        cert: [req.certPem, ...req.chainPem].join('\n'),
         key: req.keyPem,
         timeout: TIMEOUT_MS,
       },
@@ -153,6 +154,7 @@ export class NationalNfseGateway implements NfseGateway {
         body: input.body,
         accept: input.accept,
         certPem: input.certificate.certPem,
+        chainPem: input.certificate.chainPem,
         keyPem: input.certificate.keyPem,
       });
     } catch (error) {
@@ -163,9 +165,28 @@ export class NationalNfseGateway implements NfseGateway {
       throw new NfseUnavailableError(`National API responded ${response.status}`);
     }
     if (response.status >= 400) {
-      throw this.toRejection(response);
+      throw this.classifyClientError(response);
     }
     return response;
+  }
+
+  private classifyClientError(response: HttpResponse): NfseUnavailableError | NfseRejectedError {
+    if (response.status === 401 || response.status === 403 || response.status === 429) {
+      return new NfseUnavailableError(`National API responded ${response.status} (authentication/rate-limit)`);
+    }
+    if (!this.hasStructuredErrors(response)) {
+      return new NfseUnavailableError(`National API responded ${response.status}`);
+    }
+    return this.toRejection(response);
+  }
+
+  private hasStructuredErrors(response: HttpResponse): boolean {
+    try {
+      const json = JSON.parse(response.body.toString('utf8')) as { erros?: unknown };
+      return Array.isArray(json.erros) && json.erros.length > 0;
+    } catch {
+      return false;
+    }
   }
 
   private parseJson(response: HttpResponse): unknown {

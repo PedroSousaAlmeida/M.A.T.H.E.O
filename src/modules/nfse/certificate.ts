@@ -4,6 +4,8 @@ import { InvalidCertificateError } from './errors';
 export interface LoadedCertificate {
   certPem: string;
   keyPem: string;
+  /** Remaining certificates from the pfx (PEM), i.e. the chain above the leaf. */
+  chainPem: string[];
   notBefore: Date;
   notAfter: Date;
   subjectCn: string;
@@ -18,21 +20,35 @@ export function loadCertificate(pfx: Buffer, password: string): LoadedCertificat
     throw new InvalidCertificateError();
   }
 
-  const certBag = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0];
+  const certBags = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] ?? [];
   const keyBag =
     p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0] ??
     p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag]?.[0];
 
-  if (!certBag?.cert || !keyBag?.key) {
+  if (certBags.length === 0 || !keyBag?.key) {
     throw new InvalidCertificateError('pfx does not contain a certificate and a private key');
   }
 
-  const cn = certBag.cert.subject.getField('CN')?.value ?? '';
+  const privateKey = keyBag.key;
+  const leafIndex = certBags.findIndex((bag) => {
+    const publicKey = bag.cert?.publicKey as forge.pki.rsa.PublicKey | undefined;
+    return publicKey?.n !== undefined && publicKey.n.equals(privateKey.n);
+  });
+
+  if (leafIndex === -1) {
+    throw new InvalidCertificateError('pfx has no certificate matching the private key');
+  }
+
+  const leafCert = certBags[leafIndex].cert!;
+  const chainCerts = certBags.filter((_, i) => i !== leafIndex).map((bag) => bag.cert!);
+
+  const cn = leafCert.subject.getField('CN')?.value ?? '';
   return {
-    certPem: forge.pki.certificateToPem(certBag.cert),
-    keyPem: forge.pki.privateKeyToPem(keyBag.key),
-    notBefore: certBag.cert.validity.notBefore,
-    notAfter: certBag.cert.validity.notAfter,
+    certPem: forge.pki.certificateToPem(leafCert),
+    keyPem: forge.pki.privateKeyToPem(privateKey),
+    chainPem: chainCerts.map((cert) => forge.pki.certificateToPem(cert)),
+    notBefore: leafCert.validity.notBefore,
+    notAfter: leafCert.validity.notAfter,
     subjectCn: String(cn),
   };
 }

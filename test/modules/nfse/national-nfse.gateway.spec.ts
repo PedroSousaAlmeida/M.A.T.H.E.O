@@ -63,6 +63,23 @@ describe('NationalNfseGateway', () => {
       expect(error.message).toContain('CNPJ do prestador inválido');
     });
 
+    it('throws NfseUnavailableError on 401/403/429 (authentication/rate-limit)', async () => {
+      for (const status of [401, 403, 429]) {
+        const gateway = new NationalNfseGateway(
+          urls,
+          fakeTransport(() => ({ status, body: Buffer.from('') })).transport,
+        );
+        const error = await gateway.emit(dps, certificate).catch((e) => e);
+        expect(error).toBeInstanceOf(NfseUnavailableError);
+      }
+    });
+
+    it('throws NfseUnavailableError on 4xx without an erros[] array', async () => {
+      const { transport } = fakeTransport(() => ({ status: 400, body: Buffer.from(JSON.stringify({ message: 'bad request' })) }));
+      const gateway = new NationalNfseGateway(urls, transport);
+      await expect(gateway.emit(dps, certificate)).rejects.toBeInstanceOf(NfseUnavailableError);
+    });
+
     it('throws NfseUnavailableError on 5xx and on transport failure', async () => {
       const five = new NationalNfseGateway(urls, fakeTransport(() => ({ status: 503, body: Buffer.from('') })).transport);
       await expect(five.emit(dps, certificate)).rejects.toBeInstanceOf(NfseUnavailableError);
