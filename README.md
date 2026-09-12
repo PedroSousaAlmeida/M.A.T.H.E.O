@@ -1,0 +1,47 @@
+# MATHEO — Emissor de NFS-e para MEI (backend)
+
+API NestJS (Bun) que emite NFS-e pela API do Sistema Nacional NFS-e. Design: `docs/superpowers/specs/2026-09-11-nfse-emitter-backend-design.md`.
+
+## Rodar local
+
+```bash
+cp .env.example .env
+# gere a chave: bun -e "console.log(require('crypto').randomBytes(32).toString('hex'))" → CERT_ENCRYPTION_KEY
+docker compose up -d postgres logto   # ou: podman compose up -d postgres logto
+bun install
+bun run prisma:migrate
+bun run dev            # http://localhost:3000/api/v0/health
+```
+
+O `docker-compose.yml` é apenas para desenvolvimento local (credenciais padrão, portas administrativas expostas) e não deve ser usado como está em produção.
+
+Logto admin: http://localhost:3002 — crie um **API Resource** com o indicador igual a `LOGTO_API_RESOURCE` e um app (SPA/Native) que peça esse resource; o access token emitido é o `Bearer` da API.
+
+## Testes
+
+```bash
+bun test                                  # unitários (test/, espelho de src/)
+bun run test:e2e                          # e2e com Postgres do compose e gateway fake
+```
+
+## Ambientes NFS-e
+
+`NFSE_ENV=fake` (padrão) usa `FakeNfseGateway`. Com `producao-restrita`/`producao` a API exige `NFSE_SEFIN_URL`, `NFSE_ADN_URL` e um certificado A1 válido cadastrado em `PUT /companies/me/certificate`.
+
+## Endpoints
+
+Todas as rotas, incluindo `/health`, vivem sob o prefixo `/api/v0`.
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | /api/v0/health | health check (público) |
+| POST | /api/v0/companies | cria a empresa do usuário |
+| GET | /api/v0/companies/me | dados da empresa |
+| PATCH | /api/v0/companies/me | atualiza dados |
+| PUT | /api/v0/companies/me/certificate | multipart `file` (.pfx) + `password` |
+| POST | /api/v0/invoices | emite NFS-e |
+| GET | /api/v0/invoices?status=&page=&limit= | lista |
+| GET | /api/v0/invoices/:id | detalhe |
+| GET | /api/v0/invoices/:id/xml | XML da NFS-e |
+| GET | /api/v0/invoices/:id/pdf | DANFSe |
+| POST | /api/v0/invoices/:id/cancel | `{ motivo }` |
