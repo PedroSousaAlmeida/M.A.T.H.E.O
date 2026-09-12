@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env';
 import { CertificateVault } from './crypto/certificate-vault';
 import { FakeNfseGateway } from './fake-nfse.gateway';
+import { NationalNfseGateway } from './national-nfse.gateway';
 import { NFSE_GATEWAY } from './nfse-gateway';
 
 const gatewayProvider: Provider = {
@@ -11,7 +12,10 @@ const gatewayProvider: Provider = {
   useFactory: (config: ConfigService<Env, true>) => {
     const env = config.get('NFSE_ENV', { infer: true });
     if (env === 'fake') return new FakeNfseGateway();
-    throw new Error(`NFSE_ENV=${env} is not wired yet (NationalNfseGateway lands in a later task)`);
+    return new NationalNfseGateway({
+      sefin: config.get('NFSE_SEFIN_URL', { infer: true })!,
+      adn: config.get('NFSE_ADN_URL', { infer: true })!,
+    });
   },
 };
 
