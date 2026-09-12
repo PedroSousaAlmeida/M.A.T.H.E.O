@@ -5,6 +5,7 @@ const schema = z
     PORT: z.coerce.number().int().positive().default(3000),
     DATABASE_URL: z.url(),
     LOGTO_ENDPOINT: z.url(),
+    LOGTO_JWKS_URL: z.url().optional(),
     LOGTO_API_RESOURCE: z.string().min(1),
     CERT_ENCRYPTION_KEY: z
       .string()

@@ -5,7 +5,7 @@ services:
       POSTGRES_USER: matheo
       POSTGRES_PASSWORD: matheo
       POSTGRES_DB: matheo
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U matheo"]
@@ -29,7 +29,7 @@ services:
     depends_on:
       logto-db: { condition: service_healthy }
     entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm start"]
-    ports: ["3001:3001", "3002:3002"]
+    ports: ["127.0.0.1:3001:3001", "127.0.0.1:3002:3002"]
     environment:
       TRUST_PROXY_HEADER: 1
       DB_URL: postgres://postgres:p0stgr3s@logto-db:5432/logto
@@ -44,8 +44,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://matheo:matheo@postgres:5432/matheo
-      LOGTO_ENDPOINT: http://logto:3001
-    ports: ["3000:3000"]
+      LOGTO_ENDPOINT: http://localhost:3001
+      LOGTO_JWKS_URL: http://logto:3001/oidc/jwks
+    ports: ["127.0.0.1:3000:3000"]
 
 volumes:
   pgdata:

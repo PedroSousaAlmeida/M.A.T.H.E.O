@@ -27,4 +27,15 @@ describe('validateEnv', () => {
   it('rejects an unknown NFSE_ENV', () => {
     expect(() => validateEnv({ ...valid, NFSE_ENV: 'staging' })).toThrow(/NFSE_ENV/);
   });
+
+  it('LOGTO_JWKS_URL is optional', () => {
+    const env = validateEnv(valid);
+    expect(env.LOGTO_JWKS_URL).toBeUndefined();
+  });
+
+  it('LOGTO_JWKS_URL is validated as a URL when present', () => {
+    const env = validateEnv({ ...valid, LOGTO_JWKS_URL: 'http://logto:3001/oidc/jwks' });
+    expect(env.LOGTO_JWKS_URL).toBe('http://logto:3001/oidc/jwks');
+    expect(() => validateEnv({ ...valid, LOGTO_JWKS_URL: 'not-a-url' })).toThrow(/LOGTO_JWKS_URL/);
+  });
 });

@@ -9,5 +9,7 @@ export const jwksProvider: Provider<JWTVerifyGetKey> = {
   provide: JWKS,
   inject: [ConfigService],
   useFactory: (config: ConfigService<Env, true>) =>
-    createRemoteJWKSet(new URL(`${config.get('LOGTO_ENDPOINT', { infer: true })}/oidc/jwks`)),
+    createRemoteJWKSet(
+      new URL(config.get('LOGTO_JWKS_URL', { infer: true }) ?? `${config.get('LOGTO_ENDPOINT', { infer: true })}/oidc/jwks`),
+    ),
 };
