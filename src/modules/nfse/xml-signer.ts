@@ -26,13 +26,19 @@ export function signXml(xml: string, certificate: LoadedCertificate, referenceLo
   return sig.getSignedXml();
 }
 
+/**
+ * Verify an XML signature against a certificate.
+ * Returns false unless the document contains exactly one Signature element.
+ * Callers must only trust data inside the element the signature references (the `Reference URI` target),
+ * never sibling elements.
+ */
 export function verifyXmlSignature(signedXml: string, certPem: string): boolean {
   try {
     const doc = new DOMParser().parseFromString(signedXml, 'text/xml');
-    const signatureNode = xpath.select1(SIGNATURE_XPATH, doc as unknown as Node);
-    if (!signatureNode) return false;
+    const signatureNodes = xpath.select(SIGNATURE_XPATH, doc as unknown as Node);
+    if (!Array.isArray(signatureNodes) || signatureNodes.length !== 1) return false;
     const sig = new SignedXml({ publicCert: certPem });
-    sig.loadSignature(signatureNode as unknown as Node);
+    sig.loadSignature(signatureNodes[0] as unknown as Node);
     return sig.checkSignature(signedXml);
   } catch {
     return false;

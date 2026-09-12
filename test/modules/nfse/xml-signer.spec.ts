@@ -39,4 +39,13 @@ describe('signXml', () => {
     const other = createTestPfx({ cn: 'OUTRA' });
     expect(verifyXmlSignature(signed, other.certPem)).toBe(false);
   });
+
+  it('rejects documents with multiple signatures', () => {
+    const signed = signXml(dps.xml, certificate, 'infDPS');
+    const sigMatch = signed.match(/<Signature[\s\S]*?<\/Signature>/);
+    if (!sigMatch) throw new Error('Failed to extract signature');
+    const sigBlock = sigMatch[0];
+    const withDuplicate = signed.replace('</DPS>', sigBlock + '</DPS>');
+    expect(verifyXmlSignature(withDuplicate, certPem)).toBe(false);
+  });
 });
