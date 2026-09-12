@@ -186,7 +186,7 @@ export class InvoicesService {
     companyId: string,
     dto: CreateInvoiceDto,
   ): Promise<{ customerId: string | null; documento: string; nome: string; email: string | null }> {
-    const hasInline = Boolean(dto.tomadorDocumento || dto.tomadorNome);
+    const hasInline = Boolean(dto.tomadorDocumento || dto.tomadorNome || dto.tomadorEmail);
     if (dto.customerId && hasInline) throw new BadRequestException('Provide either customerId or tomador* fields, not both');
     if (dto.customerId && dto.saveCustomer) throw new BadRequestException('saveCustomer only applies to tomador* fields');
 

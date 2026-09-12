@@ -72,16 +72,16 @@ export class CustomersService {
     return customer;
   }
 
-  /** Used by invoice emission with `saveCustomer: true`. */
+  /** Used by invoice emission with `saveCustomer: true`. Upsert avoids a P2002 race between concurrent emissions. */
   async findOrCreateByDocumento(
     companyId: string,
     data: { documento: string; nome: string; email?: string | null },
   ): Promise<Customer> {
-    const existing = await this.prisma.customer.findUnique({
+    return this.prisma.customer.upsert({
       where: { companyId_documento: { companyId, documento: data.documento } },
+      create: { companyId, documento: data.documento, nome: data.nome, email: data.email },
+      update: {},
     });
-    if (existing) return existing;
-    return this.prisma.customer.create({ data: { companyId, documento: data.documento, nome: data.nome, email: data.email } });
   }
 
   private mapUniqueViolation(error: unknown): unknown {

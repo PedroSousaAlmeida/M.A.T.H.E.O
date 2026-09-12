@@ -175,6 +175,13 @@ describe('InvoicesService', () => {
       await expect(service.emit(userId, { customerId: 'cu1', saveCustomer: true, descricao: 'S', valor: 1, codigoTributacao: '01.01.01' })).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.invoice.create).not.toHaveBeenCalled();
     });
+
+    it('rejects customerId combined with only tomadorEmail', async () => {
+      await expect(
+        service.emit(userId, { customerId: 'cu1', tomadorEmail: 'x@y.com', descricao: 'S', valor: 1, codigoTributacao: '01.01.01' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.invoice.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAll', () => {

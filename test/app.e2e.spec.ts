@@ -135,5 +135,19 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
 
     const other = await request(server).get(`/api/v0/invoices/${id}`).set({ Authorization: `Bearer ${await tokenFor('someone-else')}` });
     expect(other.status).toBe(404);
+
+    await prisma.company.update({ where: { cnpj }, data: { trialEndsAt: new Date(Date.now() - 1000) } });
+    const expired = await request(server)
+      .post('/api/v0/invoices')
+      .set(auth)
+      .send({ tomadorDocumento: '12345678909', tomadorNome: 'Cliente', descricao: 'Serviço', valor: 100, codigoTributacao: '01.01.01' });
+    expect(expired.status).toBe(402);
+    expect(expired.body.statusCode).toBe(402);
+    expect(expired.body.message).toBe('Trial expired');
+    expect(typeof expired.body.details.trialEndsAt).toBe('string');
+    expect(new Date(expired.body.details.trialEndsAt).getTime()).not.toBeNaN();
+
+    const listAfterExpiry = await request(server).get('/api/v0/invoices').set(auth);
+    expect(listAfterExpiry.status).toBe(200);
   });
 });

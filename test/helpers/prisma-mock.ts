@@ -5,7 +5,7 @@ export function createPrismaMock() {
   const prisma = {
     company: { findUnique: mock(), create: mock(), update: mock() },
     invoice: { findMany: mock(), findFirst: mock(), create: mock(), update: mock(), count: mock(), aggregate: mock() },
-    customer: { findUnique: mock(), findFirst: mock(), findMany: mock(), create: mock(), update: mock(), delete: mock(), count: mock() },
+    customer: { findUnique: mock(), findFirst: mock(), findMany: mock(), create: mock(), update: mock(), upsert: mock(), delete: mock(), count: mock() },
     $transaction: mock(),
   };
   // Default: run the callback with the same mock as the transaction client

@@ -86,13 +86,15 @@ describe('CustomersService', () => {
     expect(prisma.customer.delete).toHaveBeenCalledWith({ where: { id: 'cu1' } });
   });
 
-  it('findOrCreateByDocumento reuses an existing customer or creates one', async () => {
-    prisma.customer.findUnique.mockResolvedValueOnce(row);
-    await expect(service.findOrCreateByDocumento('c1', { documento: '12345678909', nome: 'Outro Nome' })).resolves.toBe(row);
-    expect(prisma.customer.create).not.toHaveBeenCalled();
-    prisma.customer.findUnique.mockResolvedValueOnce(null);
-    prisma.customer.create.mockResolvedValueOnce({ ...row, id: 'cu2', documento: '11111111111' });
-    await expect(service.findOrCreateByDocumento('c1', { documento: '11111111111', nome: 'Novo', email: 'n@x.com' })).resolves.toMatchObject({ id: 'cu2' });
-    expect(prisma.customer.create).toHaveBeenCalledWith({ data: { companyId: 'c1', documento: '11111111111', nome: 'Novo', email: 'n@x.com' } });
+  it('findOrCreateByDocumento upserts on companyId_documento, never overwriting an existing customer', async () => {
+    prisma.customer.upsert.mockResolvedValueOnce({ ...row, id: 'cu2', documento: '11111111111' });
+    await expect(
+      service.findOrCreateByDocumento('c1', { documento: '11111111111', nome: 'Novo', email: 'n@x.com' }),
+    ).resolves.toMatchObject({ id: 'cu2' });
+    expect(prisma.customer.upsert).toHaveBeenCalledWith({
+      where: { companyId_documento: { companyId: 'c1', documento: '11111111111' } },
+      create: { companyId: 'c1', documento: '11111111111', nome: 'Novo', email: 'n@x.com' },
+      update: {},
+    });
   });
 });

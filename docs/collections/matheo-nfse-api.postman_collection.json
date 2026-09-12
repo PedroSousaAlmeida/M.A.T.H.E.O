@@ -375,23 +375,6 @@
             }
           },
           "response": []
-        },
-        {
-          "name": "DELETE /customers/:id — remover",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/customers/{{customerId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "customers",
-                "{{customerId}}"
-              ]
-            }
-          },
-          "response": []
         }
       ]
     },
@@ -584,6 +567,28 @@
                 "invoices",
                 "{{invoiceId}}",
                 "cancel"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "DELETE /customers/:id — remover",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
               ]
             }
           },
