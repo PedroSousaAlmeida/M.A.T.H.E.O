@@ -3,6 +3,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export interface RequestStore {
   requestId: string;
   userId?: string;
+  ip?: string;
+  userAgent?: string;
 }
 
 const storage = new AsyncLocalStorage<RequestStore>();

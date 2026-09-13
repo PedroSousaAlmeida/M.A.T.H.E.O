@@ -87,3 +87,28 @@ model Invoice {
   @@index([companyId, status])
   @@map("invoices")
 }
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
+model AuditLog {
+  id         String       @id @default(uuid())
+  occurredAt DateTime     @default(now())
+  requestId  String?
+  userId     String
+  companyId  String?
+  action     String
+  entityType String?
+  entityId   String?
+  outcome    AuditOutcome @default(SUCCESS)
+  statusCode Int?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+
+  @@index([companyId, occurredAt(sort: Desc)])
+  @@index([userId, occurredAt(sort: Desc)])
+  @@map("audit_logs")
+}

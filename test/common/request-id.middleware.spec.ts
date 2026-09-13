@@ -3,16 +3,18 @@ import { EventEmitter } from 'node:events';
 import { RequestContext } from '@/common/request-context';
 import { RequestIdMiddleware } from '@/common/request-id.middleware';
 
-function run(headers: Record<string, string>, url = '/x') {
-  const req: any = { headers, method: 'GET', url, originalUrl: url };
+function run(headers: Record<string, string>, url = '/x', ip = '10.0.0.1') {
+  const req: any = { headers, method: 'GET', url, originalUrl: url, ip };
   const setHeader = mock();
   const res: any = Object.assign(new EventEmitter(), { setHeader, statusCode: 200 });
   const logger = { log: mock(), debug: mock() };
   let inside: string | undefined;
+  let store: ReturnType<typeof RequestContext.get>;
   new RequestIdMiddleware(logger as any).use(req, res, () => {
     inside = RequestContext.get()?.requestId;
+    store = RequestContext.get();
   });
-  return { req, res, setHeader, inside, logger };
+  return { req, res, setHeader, inside, logger, store };
 }
 
 describe('RequestIdMiddleware', () => {
@@ -50,5 +52,16 @@ describe('RequestIdMiddleware', () => {
     expect(message).toMatch(/^GET \/api\/v0\/health 200 \d+ms$/);
     expect(context).toBe('HTTP');
     expect(logger.log).not.toHaveBeenCalled();
+  });
+
+  it('stores ip and user agent from the request in the request context', () => {
+    const { store } = run({ 'user-agent': 'curl/8.0' }, '/x', '203.0.113.5');
+    expect(store?.ip).toBe('203.0.113.5');
+    expect(store?.userAgent).toBe('curl/8.0');
+  });
+
+  it('normalizes an array user-agent header to its first element', () => {
+    const { store } = run({ 'user-agent': ['curl/8.0', 'other'] as any }, '/x');
+    expect(store?.userAgent).toBe('curl/8.0');
   });
 });

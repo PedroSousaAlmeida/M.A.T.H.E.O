@@ -6,6 +6,7 @@ export function createPrismaMock() {
     company: { findUnique: mock(), create: mock(), update: mock() },
     invoice: { findMany: mock(), findFirst: mock(), create: mock(), update: mock(), count: mock(), aggregate: mock() },
     customer: { findUnique: mock(), findFirst: mock(), findMany: mock(), create: mock(), update: mock(), upsert: mock(), delete: mock(), count: mock() },
+    auditLog: { create: mock(), findMany: mock(), count: mock() },
     $transaction: mock(),
     $queryRaw: mock(),
   };

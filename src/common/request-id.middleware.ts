@@ -17,7 +17,9 @@ export class RequestIdMiddleware implements NestMiddleware {
     const requestId = candidate && VALID_ID.test(candidate) ? candidate : randomUUID();
     req.id = requestId;
     res.setHeader(REQUEST_ID_HEADER, requestId);
-    RequestContext.run({ requestId }, () => {
+    const userAgentHeader = req.headers['user-agent'];
+    const userAgent = Array.isArray(userAgentHeader) ? userAgentHeader[0] : userAgentHeader;
+    RequestContext.run({ requestId, ip: req.ip, userAgent }, () => {
       const started = Date.now();
       res.on('finish', () => {
         // strip the query string so a token or secret passed as a query param never reaches logs
