@@ -1,3 +1,4 @@
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Controller, Get, Query } from '@nestjs/common';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { AllowExpiredTrial } from '../companies/allow-expired-trial.decorator';
@@ -5,6 +6,8 @@ import { CompaniesService } from '../companies/companies.service';
 import { AuditService } from './audit.service';
 import { ListAuditLogsDto } from './dto/list-audit-logs.dto';
 
+@ApiTags('audit')
+@ApiBearerAuth('logto')
 @Controller('audit-logs')
 export class AuditController {
   constructor(

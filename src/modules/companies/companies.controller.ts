@@ -1,3 +1,4 @@
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import {
   BadRequestException,
   Body,
@@ -19,6 +20,8 @@ import { UploadCertificateDto } from './dto/upload-certificate.dto';
 
 const MAX_PFX_BYTES = 10 * 1024;
 
+@ApiTags('companies')
+@ApiBearerAuth('logto')
 @Controller('companies')
 export class CompaniesController {
   constructor(private readonly companies: CompaniesService) {}
@@ -41,6 +44,8 @@ export class CompaniesController {
   }
 
   @Put('me/certificate')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', required: ['file', 'password'], properties: { file: { type: 'string', format: 'binary', description: 'Certificado A1 (.pfx, máx. 10 KB)' }, password: { type: 'string' } } } })
   @AllowExpiredTrial()
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_PFX_BYTES, files: 1 } }))
   setCertificate(

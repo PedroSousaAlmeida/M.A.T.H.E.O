@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "MATHEO NFS-e API",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "Backend emissor de NFS-e para MEI. Todas as rotas ficam sob {{baseUrl}} (= http://localhost:3000/api/v0). Exceto /health, todas exigem access token do Logto. A collection ja vem com OAuth 2.0 (Authorization Code + PKCE) apontando para o Logto: preencha logtoClientId/logtoClientSecret no environment, abra Authorization na collection e clique em 'Get New Access Token'. O parametro resource={{apiResource}} e obrigatorio para o Logto emitir um JWT com aud correto (sem ele o token e opaco e a API responde 401). A versao desta collection (info.version) acompanha a versao do package.json.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },

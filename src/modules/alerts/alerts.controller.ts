@@ -1,8 +1,11 @@
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Controller, Get } from '@nestjs/common';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { AllowExpiredTrial } from '../companies/allow-expired-trial.decorator';
 import { AlertsService } from './alerts.service';
 
+@ApiTags('alerts')
+@ApiBearerAuth('logto')
 @Controller('alerts')
 export class AlertsController {
   constructor(private readonly alerts: AlertsService) {}

@@ -1,3 +1,4 @@
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 import { AllowExpiredTrial } from '../companies/allow-expired-trial.decorator';
@@ -6,6 +7,8 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { ListCustomersDto } from './dto/list-customers.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
+@ApiTags('customers')
+@ApiBearerAuth('logto')
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly customers: CustomersService) {}

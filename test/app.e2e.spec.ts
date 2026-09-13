@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SignJWT, generateKeyPair, type CryptoKey } from 'jose';
 import request from 'supertest';
-import { HttpExceptionFilter } from '@/common/http-exception.filter';
+import { configureApp } from '@/app.setup';
 import { JWKS } from '@/modules/auth/jwks.provider';
 import { PrismaService } from '@/prisma/prisma.service';
 import { createTestPfx } from './helpers/test-certificate';
@@ -46,9 +46,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
       .useValue(async () => publicKey)
       .compile();
     app = moduleRef.createNestApplication();
-    app.setGlobalPrefix('api/v0');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    app.useGlobalFilters(new HttpExceptionFilter());
+    configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);
 
@@ -76,6 +74,25 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(res.body).toMatchObject({ status: 'ok', apiVersion: 'v0', stage: 'alpha', checks: { database: { status: 'ok' } } });
     expect(res.body.version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(res.headers['x-request-id']).toMatch(/^[A-Za-z0-9._-]{1,128}$/);
+  });
+
+  it('serves the OpenAPI document publicly and answers CORS preflight for the configured origin', async () => {
+    const docs = await request(app.getHttpServer()).get('/api/v0/docs-json');
+    expect(docs.status).toBe(200);
+    expect(docs.body.openapi).toMatch(/^3\./);
+    expect(Object.keys(docs.body.paths)).toEqual(expect.arrayContaining(['/api/v0/invoices', '/api/v0/companies/me', '/api/v0/customers', '/api/v0/alerts', '/api/v0/audit-logs']));
+    expect(docs.body.components.securitySchemes.logto.scheme).toBe('bearer');
+
+    const preflight = await request(app.getHttpServer())
+      .options('/api/v0/invoices')
+      .set('Origin', 'http://localhost:5173')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'authorization,content-type');
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    const cors = await request(app.getHttpServer()).get('/api/v0/health').set('Origin', 'http://localhost:5173');
+    expect(cors.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(cors.headers['access-control-expose-headers']).toContain('x-request-id');
   });
 
   it('rejects requests without a token', async () => {

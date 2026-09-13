@@ -1,3 +1,4 @@
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Body, Controller, Get, Header, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
@@ -7,6 +8,8 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { ListInvoicesDto } from './dto/list-invoices.dto';
 import { InvoicesService } from './invoices.service';
 
+@ApiTags('invoices')
+@ApiBearerAuth('logto')
 @Controller('invoices')
 export class InvoicesController {
   constructor(private readonly invoices: InvoicesService) {}

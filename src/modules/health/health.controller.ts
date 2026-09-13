@@ -1,8 +1,10 @@
+import { ApiTags } from '@nestjs/swagger';
 import { Controller, Get, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../auth/public.decorator';
 import { HealthService } from './health.service';
 
+@ApiTags('health')
 @Controller('health')
 export class HealthController {
   constructor(private readonly health: HealthService) {}

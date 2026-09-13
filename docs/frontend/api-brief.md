@@ -1,6 +1,6 @@
 # MATHEO — brief da API para o frontend
 
-Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.3.0), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
+Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.3.1), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
 
 ## 1. O produto em uma frase
 
@@ -20,6 +20,11 @@ Um MEI (microempreendedor) cadastra sua empresa e o certificado digital uma vez,
 - A API só valida o token. O `sub` do token identifica o usuário. **1 usuário = 1 empresa** nesta versão.
 - Todas as rotas ficam sob **`/api/v0`**. Todas exigem `Authorization: Bearer <token>`, exceto `GET /health`.
 - `GET /health` (público) devolve `{ status, version, stage, apiVersion, environment, nfseEnv, commit, runtime, uptimeSeconds, timestamp, checks.database }` — o front pode mostrar `version`/`stage` no rodapé e usar `status` (`ok`/`degraded`, HTTP 200/503) numa página de status.
+
+### 2.0 OpenAPI (fonte dos tipos) e CORS
+
+- **Swagger UI:** `GET /api/v0/docs` · **OpenAPI 3 JSON:** `GET /api/v0/docs-json` — ambos públicos. Gere o client tipado a partir do JSON (`openapi-typescript` / `orval` / `openapi-fetch`) em vez de escrever tipos à mão; este brief continua sendo a referência de **fluxos, estados e UX**, o OpenAPI é a referência de **contratos**.
+- **CORS:** a API libera as origens de `CORS_ORIGINS` (dev: `http://localhost:5173`). Se o front rodar em outra porta, ajuste o `.env` da API. Headers expostos: `x-request-id`, `Content-Disposition`.
 
 ### 2.1 Configuração do Logto para a SPA
 
