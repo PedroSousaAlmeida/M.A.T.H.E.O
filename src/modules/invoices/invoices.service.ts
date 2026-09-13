@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Invoice, Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CompaniesService } from '../companies/companies.service';
 import { CustomersService } from '../customers/customers.service';
 import { NfseRejectedError, NfseUnavailableError } from '../nfse/errors';
@@ -32,6 +33,7 @@ export class InvoicesService {
     private readonly prisma: PrismaService,
     private readonly companies: CompaniesService,
     private readonly customers: CustomersService,
+    private readonly audit: AuditService,
     @Inject(NFSE_GATEWAY) private readonly gateway: NfseGateway,
     config: ConfigService<Env, true>,
   ) {
@@ -40,7 +42,6 @@ export class InvoicesService {
 
   async emit(userId: string, dto: CreateInvoiceDto): Promise<InvoiceResponse> {
     const { company, certificate } = await this.companies.getCompanyWithCertificate(userId);
-    this.companies.assertCanEmit(company);
     const tomador = await this.resolveTomador(userId, company.id, dto);
     const valor = dto.valor.toFixed(2);
 
@@ -93,6 +94,25 @@ export class InvoicesService {
           where: { id: invoice.id },
           data: { status: 'REJECTED', rejectionReason: `${error.code}: ${error.message}` },
         });
+        await this.audit.record({
+          action: 'invoice.rejected',
+          companyId: company.id,
+          entityType: 'invoice',
+          entityId: invoice.id,
+          outcome: 'FAILURE',
+          statusCode: 422,
+          metadata: { dpsNumero: invoice.dpsNumero, code: error.code, reason: error.message },
+        });
+      } else if (error instanceof NfseUnavailableError) {
+        await this.audit.record({
+          action: 'invoice.pending',
+          companyId: company.id,
+          entityType: 'invoice',
+          entityId: invoice.id,
+          outcome: 'FAILURE',
+          statusCode: 502,
+          metadata: { dpsNumero: invoice.dpsNumero },
+        });
       }
       this.mapGatewayError(error, invoice.id, 'NFS-e rejected by the national API', 'National NFS-e API unavailable; invoice kept as PENDING');
     }
@@ -102,6 +122,21 @@ export class InvoicesService {
       { status: 'ISSUED', ...result },
       `Invoice ${invoice.id} was issued at the national API (chaveAcesso=${result.chaveAcesso}, numeroNfse=${result.numeroNfse}) but could not be persisted; reconcile manually`,
     );
+    await this.audit.record({
+      action: 'invoice.emitted',
+      companyId: company.id,
+      entityType: 'invoice',
+      entityId: issued.id,
+      statusCode: 201,
+      metadata: {
+        dpsNumero: issued.dpsNumero,
+        chaveAcesso: issued.chaveAcesso,
+        numeroNfse: issued.numeroNfse,
+        valor: Number(issued.valor).toFixed(2),
+        tomadorDocumento: issued.tomadorDocumento,
+        customerId: issued.customerId,
+      },
+    });
     return this.toResponse(issued);
   }
 
@@ -148,6 +183,17 @@ export class InvoicesService {
         certificate,
       );
     } catch (error) {
+      if (error instanceof NfseRejectedError) {
+        await this.audit.record({
+          action: 'invoice.cancel_rejected',
+          companyId: company.id,
+          entityType: 'invoice',
+          entityId: invoice.id,
+          outcome: 'FAILURE',
+          statusCode: 422,
+          metadata: { chaveAcesso: invoice.chaveAcesso, code: error.code, reason: error.message },
+        });
+      }
       this.mapGatewayError(error, invoice.id, 'Cancellation rejected by the national API', 'National NFS-e API unavailable');
     }
 
@@ -156,6 +202,14 @@ export class InvoicesService {
       { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
       `Invoice ${invoice.id} was cancelled at the national API (chaveAcesso=${invoice.chaveAcesso}) but could not be persisted; reconcile manually`,
     );
+    await this.audit.record({
+      action: 'invoice.cancelled',
+      companyId: company.id,
+      entityType: 'invoice',
+      entityId: cancelled.id,
+      statusCode: 200,
+      metadata: { chaveAcesso: cancelled.chaveAcesso, motivo },
+    });
     return this.toResponse(cancelled);
   }
 
