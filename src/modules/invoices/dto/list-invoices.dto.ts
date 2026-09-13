@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsDate, IsEnum, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { InvoiceStatus } from '../../../../generated/prisma/client';
 
 export class ListInvoicesDto {
@@ -8,6 +8,25 @@ export class ListInvoicesDto {
   @IsOptional()
   @IsEnum(InvoiceStatus)
   status?: InvoiceStatus;
+
+  @ApiPropertyOptional({ description: 'Busca por nome ou documento do tomador (início) ou número da NFS-e (exato)', maxLength: 100 })
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value?.trim()))
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  search?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date-time', description: 'Emitidas a partir de (inclusive)' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  from?: Date;
+
+  @ApiPropertyOptional({ type: String, format: 'date-time', description: 'Emitidas até (inclusive)' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  to?: Date;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()

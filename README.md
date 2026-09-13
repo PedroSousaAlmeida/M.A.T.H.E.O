@@ -10,7 +10,8 @@ cp .env.example .env
 docker compose up -d postgres logto   # ou: podman compose up -d postgres logto
 bun install
 bun run prisma:migrate
-bun run dev            # http://localhost:3000/api/v0/health
+bun run dev            # http://localhost:3000/api/v0/health (recarrega a cada alteração de arquivo)
+bun run serve          # mesma coisa SEM watch — use quando outra pessoa (ex.: o frontend) estiver consumindo a API
 ```
 
 O `docker-compose.yml` é apenas para desenvolvimento local (credenciais padrão, portas administrativas expostas) e não deve ser usado como está em produção. Todas as portas publicadas (5432, 3001, 3002, 3000) ficam vinculadas a `127.0.0.1`, não acessíveis pela rede.

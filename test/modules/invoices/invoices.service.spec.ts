@@ -5,7 +5,7 @@ import { Test } from '@nestjs/testing';
 import { AuditService } from '@/modules/audit/audit.service';
 import { CompaniesService } from '@/modules/companies/companies.service';
 import { CustomersService } from '@/modules/customers/customers.service';
-import { InvoicesService } from '@/modules/invoices/invoices.service';
+import { InvoicesService, fiscalPeriodStarts } from '@/modules/invoices/invoices.service';
 import { NfseRejectedError, NfseUnavailableError } from '@/modules/nfse/errors';
 import { NFSE_GATEWAY } from '@/modules/nfse/nfse-gateway';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -49,7 +49,7 @@ describe('InvoicesService', () => {
         { provide: CustomersService, useValue: customers },
         { provide: AuditService, useValue: audit },
         { provide: NFSE_GATEWAY, useValue: gateway },
-        { provide: ConfigService, useValue: { get: () => 'fake' } },
+        { provide: ConfigService, useValue: { get: (key: string) => (key === 'MEI_ANNUAL_LIMIT' ? 81000 : 'fake') } },
       ],
     }).compile();
     service = moduleRef.get(InvoicesService);
@@ -207,6 +207,64 @@ describe('InvoicesService', () => {
       const result = await service.findAll(userId, { status: 'PENDING', page: 2, limit: 10 });
       expect(prisma.invoice.findMany).toHaveBeenCalledWith({ where: { companyId: 'c1', status: 'PENDING' }, orderBy: { createdAt: 'desc' }, skip: 10, take: 10 });
       expect(result).toEqual({ data: [expect.objectContaining({ id: 'i1', valor: '150.00' })], page: 2, limit: 10, total: 1 });
+    });
+
+    it('filters by search (tomador nome/documento, numero) and by emission period', async () => {
+      prisma.invoice.findMany.mockResolvedValue([]);
+      prisma.invoice.count.mockResolvedValue(0);
+      const from = new Date('2026-09-01T03:00:00Z');
+      const to = new Date('2026-09-30T03:00:00Z');
+      await service.findAll(userId, { search: 'cli', from, to, page: 1, limit: 20 });
+      expect(prisma.invoice.findMany.mock.calls[0][0].where).toEqual({
+        companyId: 'c1',
+        OR: [
+          { tomadorNome: { contains: 'cli', mode: 'insensitive' } },
+          { tomadorDocumento: { startsWith: 'cli' } },
+          { numeroNfse: 'cli' },
+        ],
+        createdAt: { gte: from, lte: to },
+      });
+    });
+  });
+
+  describe('getSummary', () => {
+    it('aggregates ISSUED totals for the fiscal month/year, counts by status and computes annual usage', async () => {
+      prisma.invoice.aggregate
+        .mockResolvedValueOnce({ _count: { _all: 2 }, _sum: { valor: '300.00' } })
+        .mockResolvedValueOnce({ _count: { _all: 10 }, _sum: { valor: '8100.00' } });
+      prisma.invoice.groupBy.mockResolvedValue([
+        { status: 'ISSUED', _count: { _all: 10 } },
+        { status: 'CANCELLED', _count: { _all: 1 } },
+      ]);
+
+      const summary = await service.getSummary(userId);
+
+      const monthWhere = prisma.invoice.aggregate.mock.calls[0][0].where;
+      expect(monthWhere).toMatchObject({ companyId: 'c1', status: 'ISSUED' });
+      expect(monthWhere.createdAt.gte).toBeInstanceOf(Date);
+      expect(prisma.invoice.groupBy).toHaveBeenCalledWith({ by: ['status'], where: { companyId: 'c1' }, _count: { _all: true } });
+      expect(summary.month).toMatchObject({ count: 2, total: '300.00' });
+      expect(summary.year).toMatchObject({ count: 10, total: '8100.00' });
+      expect(summary.byStatus).toEqual({ PENDING: 0, ISSUED: 10, REJECTED: 0, CANCELLED: 1 });
+      expect(summary.annualLimit).toBe('81000.00');
+      expect(summary.annualUsagePct).toBe(10);
+    });
+
+    it('handles a company with no invoices', async () => {
+      prisma.invoice.aggregate.mockResolvedValue({ _count: { _all: 0 }, _sum: { valor: null } });
+      prisma.invoice.groupBy.mockResolvedValue([]);
+      const summary = await service.getSummary(userId);
+      expect(summary.month).toMatchObject({ count: 0, total: '0.00' });
+      expect(summary.annualUsagePct).toBe(0);
+    });
+  });
+
+  describe('fiscalPeriodStarts', () => {
+    it('uses America/Sao_Paulo month and year boundaries', () => {
+      // 2026-09-01T01:00Z is still Aug 31 22:00 in São Paulo
+      const { monthStart, yearStart } = fiscalPeriodStarts(new Date('2026-09-01T01:00:00Z'));
+      expect(monthStart.toISOString()).toBe('2026-08-01T03:00:00.000Z');
+      expect(yearStart.toISOString()).toBe('2026-01-01T03:00:00.000Z');
     });
   });
 

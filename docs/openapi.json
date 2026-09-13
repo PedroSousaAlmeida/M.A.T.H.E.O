@@ -1169,6 +1169,36 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Busca por nome ou documento do tomador (início) ou número da NFS-e (exato)",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Emitidas a partir de (inclusive)",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Emitidas até (inclusive)",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -1276,6 +1306,83 @@
           }
         ],
         "summary": "Lista notas (mais recentes primeiro)",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/api/v0/invoices/summary": {
+      "get": {
+        "operationId": "InvoicesController_getSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceSummaryResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "KPIs do painel: emitido no mês e no ano (só ISSUED), contagem por status, teto anual do MEI",
         "tags": [
           "invoices"
         ]
@@ -1738,7 +1845,7 @@
   "info": {
     "title": "MATHEO NFS-e API",
     "description": "Emissor de NFS-e para MEI. Todas as rotas exigem Bearer token do Logto (audience https://api.matheo.local), exceto /health e esta documentação. Erros seguem { statusCode, message, details?, requestId }. Ver docs/frontend/api-brief.md para fluxos e estados.",
-    "version": "0.3.2",
+    "version": "0.4.0",
     "contact": {}
   },
   "tags": [
@@ -2446,6 +2553,94 @@
           "cancelReason",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "PeriodTotals": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "example": 12,
+            "description": "Notas ISSUED no período"
+          },
+          "total": {
+            "type": "string",
+            "example": "4350.00",
+            "description": "Soma dos valores das notas ISSUED (string decimal)"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Início do período (fuso America/Sao_Paulo)"
+          }
+        },
+        "required": [
+          "count",
+          "total",
+          "start"
+        ]
+      },
+      "StatusCounts": {
+        "type": "object",
+        "properties": {
+          "PENDING": {
+            "type": "number",
+            "example": 0
+          },
+          "ISSUED": {
+            "type": "number",
+            "example": 40
+          },
+          "REJECTED": {
+            "type": "number",
+            "example": 2
+          },
+          "CANCELLED": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "PENDING",
+          "ISSUED",
+          "REJECTED",
+          "CANCELLED"
+        ]
+      },
+      "InvoiceSummaryResponseModel": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "$ref": "#/components/schemas/PeriodTotals"
+          },
+          "year": {
+            "$ref": "#/components/schemas/PeriodTotals"
+          },
+          "byStatus": {
+            "description": "Contagem de todas as notas da empresa por status",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusCounts"
+              }
+            ]
+          },
+          "annualLimit": {
+            "type": "string",
+            "example": "81000.00",
+            "description": "Teto anual de faturamento do MEI (MEI_ANNUAL_LIMIT)"
+          },
+          "annualUsagePct": {
+            "type": "number",
+            "example": 5.4,
+            "description": "year.total / annualLimit em %, 1 casa decimal"
+          }
+        },
+        "required": [
+          "month",
+          "year",
+          "byStatus",
+          "annualLimit",
+          "annualUsagePct"
         ]
       },
       "CancelInvoiceDto": {

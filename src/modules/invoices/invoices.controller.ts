@@ -3,6 +3,7 @@ import { ApiCommonErrors } from '../../common/openapi/common-responses';
 import { ErrorResponse } from '../../common/openapi/error.response';
 import { ApiPaginatedResponse } from '../../common/openapi/paginated';
 import { InvoiceResponseModel } from './dto/invoice.response';
+import { InvoiceSummaryResponseModel } from './dto/invoice-summary.response';
 import { Body, Controller, Get, Header, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
@@ -36,6 +37,15 @@ export class InvoicesController {
   @AllowExpiredTrial()
   findAll(@CurrentUser() user: AuthUser, @Query() query: ListInvoicesDto) {
     return this.invoices.findAll(user.id, query);
+  }
+
+  // Declared before ':id' so 'summary' is not parsed as a UUID.
+  @Get('summary')
+  @AllowExpiredTrial()
+  @ApiOperation({ summary: 'KPIs do painel: emitido no mês e no ano (só ISSUED), contagem por status, teto anual do MEI' })
+  @ApiOkResponse({ type: InvoiceSummaryResponseModel })
+  getSummary(@CurrentUser() user: AuthUser) {
+    return this.invoices.getSummary(user.id);
   }
 
   @Get(':id')

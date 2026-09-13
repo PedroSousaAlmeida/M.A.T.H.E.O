@@ -155,6 +155,22 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(list.body.total).toBe(2);
     expect(list.body.data[0].id).toBe(id);
 
+    const summary = await request(server).get('/api/v0/invoices/summary').set(auth);
+    expect(summary.status).toBe(200);
+    expect(summary.body.byStatus.ISSUED).toBe(2);
+    expect(summary.body.month.count).toBe(2);
+    expect(summary.body.month.total).toBe('150.00');
+    expect(summary.body.year.total).toBe('150.00');
+    expect(summary.body.annualLimit).toBe('81000.00');
+    expect(typeof summary.body.annualUsagePct).toBe('number');
+
+    const byName = await request(server).get('/api/v0/invoices?search=Empresa%20Cliente').set(auth);
+    expect(byName.status).toBe(200);
+    expect(byName.body.total).toBe(1);
+    expect(byName.body.data[0].tomadorNome).toBe('Empresa Cliente');
+    const none = await request(server).get(`/api/v0/invoices?from=${encodeURIComponent(new Date(Date.now() + 86400000).toISOString())}`).set(auth);
+    expect(none.body.total).toBe(0);
+
     const alertsHealthy = await request(server).get('/api/v0/alerts').set(auth);
     expect(alertsHealthy.status).toBe(200);
     expect(alertsHealthy.body.alerts).toEqual([]);

@@ -1,6 +1,6 @@
 # MATHEO — brief da API para o frontend
 
-Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.3.2), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
+Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.4.0), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
 
 ## 1. O produto em uma frase
 
@@ -125,7 +125,19 @@ O tomador (cliente) é identificado de uma destas duas formas — **exatamente u
 ```
 → 201 `Invoice` com `status: "ISSUED"` · 400 `customerId` e `tomador*` juntos ou nenhum dos dois · 402 trial vencido (ver seção 5) · 422 rejeitada (`details.code`, `details.reason`; a nota fica salva como `REJECTED`) · 422 sem certificado · 502 fisco fora (nota fica `PENDING`) · 409 emissão concorrente (repetir).
 
-**`GET /invoices?status=&page=&limit=`** → lista paginada, mais recentes primeiro. `status` ∈ `PENDING | ISSUED | REJECTED | CANCELLED`.
+**`GET /invoices?status=&search=&from=&to=&page=&limit=`** → lista paginada, mais recentes primeiro. `status` ∈ `PENDING | ISSUED | REJECTED | CANCELLED`; `search` casa com o nome do tomador (contém, sem case), o início do documento ou o número exato da NFS-e; `from`/`to` (ISO date-time) filtram pela data de emissão — para "mês de setembro" mande `from=2026-09-01T03:00:00Z&to=2026-10-01T02:59:59Z` (fuso -03:00).
+
+**`GET /invoices/summary`** → KPIs do painel, calculados no servidor (não some no client):
+```json
+{
+  "month": { "count": 2, "total": "150.00", "start": "2026-09-01T03:00:00.000Z" },
+  "year":  { "count": 12, "total": "4350.00", "start": "2026-01-01T03:00:00.000Z" },
+  "byStatus": { "PENDING": 0, "ISSUED": 12, "REJECTED": 1, "CANCELLED": 2 },
+  "annualLimit": "81000.00",
+  "annualUsagePct": 5.4
+}
+```
+`total` soma só notas **ISSUED** (canceladas/rejeitadas/pendentes não contam como faturamento); mês/ano seguem o calendário fiscal em `America/Sao_Paulo`. `annualLimit` vem da configuração (`MEI_ANNUAL_LIMIT`, hoje R$ 81.000) — mostre uma barra "X% do teto anual" e alerte perto de 100%.
 
 **`GET /invoices/:id`** → `Invoice`.
 
