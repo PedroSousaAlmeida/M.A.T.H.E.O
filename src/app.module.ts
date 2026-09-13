@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { CommonModule } from './common/common.module';
+import { RequestIdMiddleware } from './common/request-id.middleware';
 import { validateEnv } from './config/env';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
@@ -15,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+    CommonModule,
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -28,4 +31,8 @@ import { PrismaModule } from './prisma/prisma.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

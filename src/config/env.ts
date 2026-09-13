@@ -16,6 +16,11 @@ const schema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     APP_STAGE: z.enum(['alpha', 'beta', 'rc', 'stable']).optional(),
     GIT_COMMIT: z.string().min(1).optional(),
+    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    LOG_PRETTY: z
+      .string()
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v === 'true' || v === '1')),
   })
   .superRefine((env, ctx) => {
     if (env.NFSE_ENV !== 'fake') {
