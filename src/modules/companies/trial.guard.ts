@@ -37,7 +37,7 @@ export class TrialGuard implements CanActivate {
       companyId: company.id,
       outcome: 'FAILURE',
       statusCode: 402,
-      metadata: { method: request.method, path: request.originalUrl ?? request.url, trialEndsAt: company.trialEndsAt },
+      metadata: { method: request.method, path: (request.originalUrl ?? request.url).split('?')[0], trialEndsAt: company.trialEndsAt },
     });
     throw new HttpException({ message: 'Trial expired', details: { trialEndsAt: company.trialEndsAt } }, 402);
   }

@@ -7,7 +7,7 @@ function run(headers: Record<string, string>, url = '/x', ip = '10.0.0.1') {
   const req: any = { headers, method: 'GET', url, originalUrl: url, ip };
   const setHeader = mock();
   const res: any = Object.assign(new EventEmitter(), { setHeader, statusCode: 200 });
-  const logger = { log: mock(), debug: mock() };
+  const logger = { access: mock() };
   let inside: string | undefined;
   let store: ReturnType<typeof RequestContext.get>;
   new RequestIdMiddleware(logger as any).use(req, res, () => {
@@ -36,22 +36,23 @@ describe('RequestIdMiddleware', () => {
     const { res, logger } = run({}, '/api/v0/companies/me?x=1');
     res.statusCode = 401;
     res.emit('finish');
-    expect(logger.log).toHaveBeenCalledTimes(1);
-    const [message, context] = logger.log.mock.calls[0];
-    expect(message).toMatch(/^GET \/api\/v0\/companies\/me 401 \d+ms$/);
-    expect(context).toBe('HTTP');
-    expect(logger.debug).not.toHaveBeenCalled();
+    expect(logger.access).toHaveBeenCalledTimes(1);
+    const [fields, level] = logger.access.mock.calls[0];
+    expect(fields.method).toBe('GET');
+    expect(fields.path).toBe('/api/v0/companies/me');
+    expect(fields.statusCode).toBe(401);
+    expect(typeof fields.durationMs).toBe('number');
+    expect(level).toBe('info');
   });
 
-  it('logs /health access lines at debug, not log', () => {
+  it('logs /health access lines at debug, not info', () => {
     const { res, logger } = run({}, '/api/v0/health');
     res.statusCode = 200;
     res.emit('finish');
-    expect(logger.debug).toHaveBeenCalledTimes(1);
-    const [message, context] = logger.debug.mock.calls[0];
-    expect(message).toMatch(/^GET \/api\/v0\/health 200 \d+ms$/);
-    expect(context).toBe('HTTP');
-    expect(logger.log).not.toHaveBeenCalled();
+    expect(logger.access).toHaveBeenCalledTimes(1);
+    const [fields, level] = logger.access.mock.calls[0];
+    expect(fields.path).toBe('/api/v0/health');
+    expect(level).toBe('debug');
   });
 
   it('stores ip and user agent from the request in the request context', () => {

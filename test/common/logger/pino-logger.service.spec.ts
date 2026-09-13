@@ -42,4 +42,35 @@ describe('PinoLoggerService', () => {
     logger.warn('kept');
     expect(lines).toHaveLength(1);
   });
+
+  it('logs a structured access line via access()', () => {
+    const { lines, logger } = capture();
+    RequestContext.run({ requestId: 'r1' }, () =>
+      logger.access({ method: 'GET', path: '/api/v0/invoices', statusCode: 200, durationMs: 12 }),
+    );
+    expect(lines[0]).toMatchObject({
+      msg: 'request',
+      method: 'GET',
+      path: '/api/v0/invoices',
+      statusCode: 200,
+      durationMs: 12,
+      context: 'HTTP',
+      requestId: 'r1',
+    });
+  });
+
+  it('logs the access line at debug when asked to', () => {
+    const lines: any[] = [];
+    const stream = new Writable({ write(c, _e, cb) { lines.push(JSON.parse(c.toString())); cb(); } });
+    const logger = new PinoLoggerService({ level: 'debug', pretty: false }, stream);
+    logger.access({ method: 'GET', path: '/api/v0/health', statusCode: 200, durationMs: 1 }, 'debug');
+    expect(lines[0]).toMatchObject({ level: 20, msg: 'request', context: 'HTTP' });
+  });
+
+  it('constructing with pretty: true never throws even without a stream override', () => {
+    const throwingFactory = () => {
+      throw new Error('cannot find module pino-pretty');
+    };
+    expect(() => new PinoLoggerService({ level: 'info', pretty: true }, undefined, throwingFactory)).not.toThrow();
+  });
 });

@@ -124,7 +124,7 @@ export class CompaniesService {
     return { company, certificate: loadCertificate(pfx, password) };
   }
 
-  /** Emission is the only feature gated by the trial. */
+  /** Expired TRIAL blocks the routes not marked @AllowExpiredTrial (see TrialGuard). */
   isTrialExpired(company: Pick<Company, 'plan' | 'trialEndsAt'>): boolean {
     return company.plan === 'TRIAL' && company.trialEndsAt.getTime() < Date.now();
   }

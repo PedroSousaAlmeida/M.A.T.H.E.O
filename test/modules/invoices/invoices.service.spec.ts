@@ -131,6 +131,15 @@ describe('InvoicesService', () => {
       await expect(service.emit(userId, dto)).rejects.toBe(persistError);
       expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
       expect(gateway.emit).toHaveBeenCalledTimes(1);
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.emitted',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { dpsNumero: 4, chaveAcesso: emitResult.chaveAcesso, numeroNfse: emitResult.numeroNfse, persisted: false },
+      });
     });
 
     it('emits by customerId, copying the customer data and storing customerId', async () => {
@@ -282,6 +291,15 @@ describe('InvoicesService', () => {
       await expect(service.cancel(userId, 'i1', 'x')).rejects.toBe(persistError);
       expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
       expect(gateway.cancel).toHaveBeenCalledTimes(1);
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.cancelled',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { chaveAcesso: issuedRow.chaveAcesso, motivo: 'x', persisted: false },
+      });
     });
   });
 

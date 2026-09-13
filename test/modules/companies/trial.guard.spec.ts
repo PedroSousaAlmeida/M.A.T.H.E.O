@@ -12,7 +12,7 @@ const expired = { id: 'c1', plan: 'TRIAL', trialEndsAt: new Date(Date.now() - 10
 const paid = { id: 'c1', plan: 'ACTIVE', trialEndsAt: new Date(0) };
 
 function ctx(user: { id: string } | undefined, meta: Record<string, boolean> = {}) {
-  const request: any = { user, method: 'POST', originalUrl: '/api/v0/invoices' };
+  const request: any = { user, method: 'POST', originalUrl: '/api/v0/invoices?x=1' };
   const context = { switchToHttp: () => ({ getRequest: () => request }), getHandler: () => 'h', getClass: () => 'c' } as unknown as ExecutionContext;
   const reflector = { getAllAndOverride: (key: string) => meta[key] } as unknown as Reflector;
   return { context, request, reflector };

@@ -40,7 +40,7 @@ export class AlertsService {
           data: { expiredAt: company.certificateExpiry },
         });
       } else if (msLeft <= CERTIFICATE_EXPIRING_DAYS * DAY) {
-        const daysLeft = Math.ceil(msLeft / DAY);
+        const daysLeft = Math.max(1, Math.ceil(msLeft / DAY));
         alerts.push({
           code: 'CERTIFICATE_EXPIRING',
           severity: 'warning',
@@ -60,7 +60,7 @@ export class AlertsService {
     } else if (company.plan === 'TRIAL') {
       const msLeft = company.trialEndsAt.getTime() - now;
       if (msLeft <= TRIAL_ENDING_DAYS * DAY) {
-        const daysLeft = Math.ceil(msLeft / DAY);
+        const daysLeft = Math.max(1, Math.ceil(msLeft / DAY));
         alerts.push({
           code: 'TRIAL_ENDING',
           severity: 'warning',

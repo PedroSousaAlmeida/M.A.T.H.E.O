@@ -117,11 +117,25 @@ export class InvoicesService {
       this.mapGatewayError(error, invoice.id, 'NFS-e rejected by the national API', 'National NFS-e API unavailable; invoice kept as PENDING');
     }
 
-    const issued = await this.persistOutcome(
-      invoice.id,
-      { status: 'ISSUED', ...result },
-      `Invoice ${invoice.id} was issued at the national API (chaveAcesso=${result.chaveAcesso}, numeroNfse=${result.numeroNfse}) but could not be persisted; reconcile manually`,
-    );
+    let issued: Invoice;
+    try {
+      issued = await this.persistOutcome(
+        invoice.id,
+        { status: 'ISSUED', ...result },
+        `Invoice ${invoice.id} was issued at the national API (chaveAcesso=${result.chaveAcesso}, numeroNfse=${result.numeroNfse}) but could not be persisted; reconcile manually`,
+      );
+    } catch (error) {
+      await this.audit.record({
+        action: 'invoice.emitted',
+        companyId: company.id,
+        entityType: 'invoice',
+        entityId: invoice.id,
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { dpsNumero: invoice.dpsNumero, chaveAcesso: result.chaveAcesso, numeroNfse: result.numeroNfse, persisted: false },
+      });
+      throw error;
+    }
     await this.audit.record({
       action: 'invoice.emitted',
       companyId: company.id,
@@ -204,11 +218,25 @@ export class InvoicesService {
       this.mapGatewayError(error, invoice.id, 'Cancellation rejected by the national API', 'National NFS-e API unavailable');
     }
 
-    const cancelled = await this.persistOutcome(
-      invoice.id,
-      { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
-      `Invoice ${invoice.id} was cancelled at the national API (chaveAcesso=${invoice.chaveAcesso}) but could not be persisted; reconcile manually`,
-    );
+    let cancelled: Invoice;
+    try {
+      cancelled = await this.persistOutcome(
+        invoice.id,
+        { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
+        `Invoice ${invoice.id} was cancelled at the national API (chaveAcesso=${invoice.chaveAcesso}) but could not be persisted; reconcile manually`,
+      );
+    } catch (error) {
+      await this.audit.record({
+        action: 'invoice.cancelled',
+        companyId: company.id,
+        entityType: 'invoice',
+        entityId: invoice.id,
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { chaveAcesso: invoice.chaveAcesso, motivo, persisted: false },
+      });
+      throw error;
+    }
     await this.audit.record({
       action: 'invoice.cancelled',
       companyId: company.id,

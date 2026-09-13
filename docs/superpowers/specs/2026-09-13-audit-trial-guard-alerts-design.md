@@ -32,8 +32,9 @@ src/
 │   ├── request-context.ts            # AsyncLocalStorage<{ requestId, userId? }>
 │   ├── request-id.middleware.ts       # gera/propaga x-request-id, abre o contexto
 │   ├── logger/pino-logger.service.ts  # LoggerService do Nest sobre pino, com requestId/userId
-│   ├── logging.interceptor.ts         # log de acesso por request
 │   └── validators/document.ts         # isValidCpf, isValidCnpj, @IsCpfOrCnpj(), @IsCnpj()
+# (não há logging.interceptor.ts: o log de acesso vive em request-id.middleware.ts,
+#  para cobrir também requests rejeitados pelo TrialGuard/outros guards)
 └── modules/
     ├── audit/
     │   ├── audit.module.ts (global)  audit.service.ts  audit.controller.ts  dto/list-audit-logs.dto.ts
@@ -83,7 +84,7 @@ Sem relação com `Company` (o log sobrevive à empresa; `companyId` é só refe
 
 ### 5.2 Logger
 - `PinoLoggerService` implementa `LoggerService` (`log/error/warn/debug/verbose`) e mescla `{ requestId, userId }` do contexto em cada linha.
-- `LoggingInterceptor` global: uma linha `info` por request (`{ msg: 'request', method, path, statusCode, durationMs }`); `/health` fica em `debug` para não poluir.
+- O log de acesso vive em `request-id.middleware.ts` (não num interceptor), para cobrir também requests rejeitados por guards (ex.: TrialGuard). Uma linha por request via `logger.access(...)`, com os campos estruturados `{ msg: 'request', method, path, statusCode, durationMs }` (mais `context: 'HTTP'` e `requestId`/`userId` do `RequestContext`); `path` nunca inclui a query string. `/health` fica em `debug` para não poluir.
 - Nível via env `LOG_LEVEL` (`fatal|error|warn|info|debug|trace`, default `info`; `debug` em development).
 
 ### 5.3 Auditoria

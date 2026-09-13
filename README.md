@@ -19,6 +19,8 @@ Rodando a API dentro do container (`docker compose --profile full up`), `LOGTO_J
 
 Logto admin: http://localhost:3002 — crie um **API Resource** com o indicador igual a `LOGTO_API_RESOURCE` e um app (SPA/Native) que peça esse resource; o access token emitido é o `Bearer` da API.
 
+Containers (`NODE_ENV=production` no `Dockerfile`) sempre logam JSON estruturado; `LOG_PRETTY=true` força saída legível para humanos mesmo em produção.
+
 ## Testes
 
 ```bash
@@ -73,7 +75,7 @@ Todas as rotas, incluindo `/health`, vivem sob o prefixo `/api/v0`.
 
 Toda resposta (sucesso ou erro) carrega o header `x-request-id`: reaproveita o que o client mandar (se for um valor válido) ou gera um `uuid`. Corpos de erro sempre trazem o mesmo valor em `requestId`, além de `statusCode`/`message`/`details?`. O `RequestContext` (AsyncLocalStorage) carrega `requestId`/`userId`/`ip`/`userAgent` durante o request e é consumido pelo logger e pela auditoria.
 
-Logs são em JSON estruturado via `pino`, com `requestId`/`userId` mesclados em cada linha quando dentro de um request. `LOG_LEVEL` controla o nível (`fatal|error|warn|info|debug|trace`, default `info`); `LOG_PRETTY=true` liga saída colorida/legível para humanos (default: ligado só em `NODE_ENV=development`). Uma linha `info` por request (`method path statusCode durationMs`); `/health` fica em `debug` para não poluir os logs de healthcheck.
+Logs são em JSON estruturado via `pino`, com `requestId`/`userId` mesclados em cada linha quando dentro de um request. `LOG_LEVEL` controla o nível (`fatal|error|warn|info|debug|trace`, default `info`); `LOG_PRETTY=true` liga saída colorida/legível para humanos (default: ligado só em `NODE_ENV=development`; containers rodam com `NODE_ENV=production` e logam JSON — use `LOG_PRETTY=true` para sobrepor). Se `pino-pretty` não estiver instalado, cai para JSON e avisa uma vez em `warn`. Uma linha `info` por request (`{ msg: 'request', method, path, statusCode, durationMs }`, sem query string); `/health` fica em `debug` para não poluir os logs de healthcheck.
 
 ## Auditoria
 

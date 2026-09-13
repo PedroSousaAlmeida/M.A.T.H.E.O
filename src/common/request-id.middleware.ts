@@ -24,9 +24,8 @@ export class RequestIdMiddleware implements NestMiddleware {
       res.on('finish', () => {
         // strip the query string so a token or secret passed as a query param never reaches logs
         const path = (req.originalUrl ?? req.url).split('?')[0];
-        const line = `${req.method} ${path} ${res.statusCode} ${Date.now() - started}ms`;
-        if (path.endsWith('/health')) this.logger.debug(line, 'HTTP');
-        else this.logger.log(line, 'HTTP');
+        const fields = { method: req.method, path, statusCode: res.statusCode, durationMs: Date.now() - started };
+        this.logger.access(fields, path.endsWith('/health') ? 'debug' : 'info');
       });
       next();
     });

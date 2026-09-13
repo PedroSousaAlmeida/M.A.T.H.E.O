@@ -45,7 +45,7 @@ Ambientes: `LOGTO_ENDPOINT` (dev `http://localhost:3001`), issuer `${LOGTO_ENDPO
 
 | Código | Quando | O que a UI faz |
 |---|---|---|
-| 400 | corpo inválido (`message: "Validation failed"`, `details: ["cnpj must be 14 digits", "documento must be a valid CPF or CNPJ", ...]`) | mostrar erros por campo (as mensagens citam o nome do campo) |
+| 400 | corpo inválido (`message: "Validation failed"`, `details: ["cnpj must be a valid CNPJ", "documento must be a valid CPF or CNPJ", ...]`) | mostrar erros por campo (as mensagens citam o nome do campo) |
 | 401 | sem token / token inválido ou expirado | renovar token pelo SDK ou mandar pro login |
 | 404 | empresa ainda não cadastrada (`GET /companies/me`) ou nota não encontrada | onboarding / lista vazia |
 | 409 | já existe empresa para o usuário; CNPJ já usado; documento de cliente já cadastrado; cancelar nota que não está `ISSUED`; emissão concorrente | mensagem direta |

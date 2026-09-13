@@ -12,9 +12,22 @@ export interface PinoLoggerOptions {
 export class PinoLoggerService implements LoggerService {
   private readonly logger: Logger;
 
-  constructor(options: PinoLoggerOptions, stream?: DestinationStream) {
-    const destination = stream ?? (options.pretty ? require('pino-pretty')({ colorize: true, translateTime: 'SYS:HH:MM:ss' }) : undefined);
+  constructor(
+    options: PinoLoggerOptions,
+    stream?: DestinationStream,
+    prettyFactory: () => DestinationStream = () => require('pino-pretty')({ colorize: true, translateTime: 'SYS:HH:MM:ss' }),
+  ) {
+    let destination = stream;
+    let prettyFailed = false;
+    if (!destination && options.pretty) {
+      try {
+        destination = prettyFactory();
+      } catch {
+        prettyFailed = true;
+      }
+    }
     this.logger = destination ? pino({ level: options.level }, destination) : pino({ level: options.level });
+    if (prettyFailed) this.logger.warn('pino-pretty not installed; logging JSON');
   }
 
   log(message: unknown, ...optional: unknown[]) {
@@ -33,6 +46,11 @@ export class PinoLoggerService implements LoggerService {
   }
   verbose(message: unknown, ...optional: unknown[]) {
     this.logger.trace(this.fields(optional), String(message));
+  }
+
+  /** One structured line per HTTP request. Never includes the query string (see RequestIdMiddleware). */
+  access(fields: { method: string; path: string; statusCode: number; durationMs: number }, level: 'info' | 'debug' = 'info') {
+    this.logger[level]({ ...this.fields([]), ...fields, context: 'HTTP' }, 'request');
   }
 
   private fields(optional: unknown[]): Record<string, unknown> {
