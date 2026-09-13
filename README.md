@@ -49,6 +49,7 @@ e envie em `PUT /api/v0/companies/me/certificate` (form-data: `file` + `password
 ## Documentação OpenAPI e CORS
 
 - **Swagger UI:** `http://localhost:3000/api/v0/docs` · **OpenAPI JSON:** `http://localhost:3000/api/v0/docs-json` (públicos). O JSON serve para gerar clients tipados no frontend, ex.: `npx openapi-typescript http://localhost:3000/api/v0/docs-json -o src/api/schema.d.ts`.
+- **`docs/openapi.json`** é versionado no repo (gerado por `bun run openapi:export`; o CI falha se estiver desatualizado). Toda rota documenta request **e** response (`*ResponseModel`, paginação `{ data, page, limit, total }`, `ErrorResponse` com `requestId`), então dá para gerar tipos/clients direto dele.
 - **CORS:** `CORS_ORIGINS` (lista separada por vírgula; default `http://localhost:5173`). Headers expostos ao browser: `x-request-id`, `Content-Disposition`.
 
 ## Endpoints

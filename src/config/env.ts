@@ -20,7 +20,7 @@ const schema = z
       .string()
       .default('http://localhost:5173')
       .transform((v) => v.split(',').map((o) => o.trim()).filter(Boolean)),
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    LOG_LEVEL: z.enum(['silent', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     LOG_PRETTY: z
       .string()
       .optional()

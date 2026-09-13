@@ -1,0 +1,2523 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v0/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseModel"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "status: degraded (banco indisponível)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseModel"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Estado da API (público)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v0/companies": {
+      "post": {
+        "operationId": "CompaniesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Usuário já tem empresa ou CNPJ já cadastrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Cria a empresa do usuário (uma vez); inicia o trial de 30 dias",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/v0/companies/me": {
+      "get": {
+        "operationId": "CompaniesController_findMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Empresa do usuário (404 = ainda não cadastrou → onboarding)",
+        "tags": [
+          "companies"
+        ]
+      },
+      "patch": {
+        "operationId": "CompaniesController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Atualiza dados da empresa (cnpj não muda)",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/v0/companies/me/certificate": {
+      "put": {
+        "operationId": "CompaniesController_setCertificate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "password"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Certificado A1 (.pfx, máx. 10 KB)"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Arquivo inválido ou senha errada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Envia o certificado A1 (.pfx + senha)",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/v0/audit-logs": {
+      "get": {
+        "operationId": "AuditController_findAll",
+        "parameters": [
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "invoice.emitted",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageMeta"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditLogResponseModel"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Extrato de ações da empresa (append-only)",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v0/customers": {
+      "post": {
+        "operationId": "CustomersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Documento já cadastrado na empresa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Cria um tomador salvo",
+        "tags": [
+          "customers"
+        ]
+      },
+      "get": {
+        "operationId": "CustomersController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Filtra por nome (contém, sem diferenciar maiúsculas) ou início do documento",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageMeta"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CustomerResponseModel"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Lista tomadores (search por nome ou início do documento)",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v0/customers/{id}": {
+      "get": {
+        "operationId": "CustomersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Detalhe do tomador",
+        "tags": [
+          "customers"
+        ]
+      },
+      "patch": {
+        "operationId": "CustomersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Atualiza um tomador",
+        "tags": [
+          "customers"
+        ]
+      },
+      "delete": {
+        "operationId": "CustomersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Remove um tomador (notas antigas mantêm a cópia dos dados)",
+        "tags": [
+          "customers"
+        ]
+      }
+    },
+    "/api/v0/invoices": {
+      "post": {
+        "operationId": "InvoicesController_emit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "status ISSUED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Emissão concorrente; repetir",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Sem certificado / vencido, ou nota rejeitada pelo fisco (details.code, details.reason; nota salva como REJECTED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "API Nacional indisponível; nota fica PENDING",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Emite uma NFS-e (síncrono). customerId OU tomador*; saveCustomer só com tomador*",
+        "tags": [
+          "invoices"
+        ]
+      },
+      "get": {
+        "operationId": "InvoicesController_findAll",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "ISSUED",
+                "REJECTED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageMeta"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/InvoiceResponseModel"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Lista notas (mais recentes primeiro)",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/api/v0/invoices/{id}": {
+      "get": {
+        "operationId": "InvoicesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Detalhe da nota",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/api/v0/invoices/{id}/xml": {
+      "get": {
+        "operationId": "InvoicesController_getXml",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "xml"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "XML da NFS-e (só ISSUED/CANCELLED)",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/api/v0/invoices/{id}/pdf": {
+      "get": {
+        "operationId": "InvoicesController_getPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "DANFSe em PDF (Content-Disposition: inline)",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/api/v0/invoices/{id}/cancel": {
+      "post": {
+        "operationId": "InvoicesController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "status CANCELLED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Nota não está ISSUED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Fisco recusou o cancelamento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Cancela uma nota ISSUED (motivo 15–255 chars)",
+        "tags": [
+          "invoices"
+        ]
+      }
+    },
+    "/api/v0/alerts": {
+      "get": {
+        "operationId": "AlertsController_forMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertsResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (details lists the field messages)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Logto token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Trial expired (only on routes not allowed after expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not registered yet, or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Avisos do dashboard, ordenados por severidade",
+        "tags": [
+          "alerts"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "MATHEO NFS-e API",
+    "description": "Emissor de NFS-e para MEI. Todas as rotas exigem Bearer token do Logto (audience https://api.matheo.local), exceto /health e esta documentação. Erros seguem { statusCode, message, details?, requestId }. Ver docs/frontend/api-brief.md para fluxos e estados.",
+    "version": "0.3.2",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Estado da API"
+    },
+    {
+      "name": "companies",
+      "description": "Empresa do usuário e certificado A1"
+    },
+    {
+      "name": "customers",
+      "description": "Tomadores salvos"
+    },
+    {
+      "name": "invoices",
+      "description": "Emissão, consulta e cancelamento de NFS-e"
+    },
+    {
+      "name": "alerts",
+      "description": "Avisos para o dashboard"
+    },
+    {
+      "name": "audit",
+      "description": "Extrato de ações da empresa"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "logto": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "RuntimeModel": {
+        "type": "object",
+        "properties": {
+          "bun": {
+            "type": "string",
+            "nullable": true,
+            "example": "1.4.0"
+          },
+          "node": {
+            "type": "string",
+            "example": "v26.3.0"
+          },
+          "platform": {
+            "type": "string",
+            "example": "linux"
+          }
+        },
+        "required": [
+          "bun",
+          "node",
+          "platform"
+        ]
+      },
+      "DatabaseCheckModel": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error"
+            ]
+          },
+          "latencyMs": {
+            "type": "number",
+            "nullable": true,
+            "example": 3
+          }
+        },
+        "required": [
+          "status",
+          "latencyMs"
+        ]
+      },
+      "ChecksModel": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "$ref": "#/components/schemas/DatabaseCheckModel"
+          }
+        },
+        "required": [
+          "database"
+        ]
+      },
+      "HealthResponseModel": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "description": "degraded → HTTP 503"
+          },
+          "name": {
+            "type": "string",
+            "example": "matheo-nfse-api"
+          },
+          "version": {
+            "type": "string",
+            "example": "0.3.2"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "alpha",
+              "beta",
+              "rc",
+              "stable"
+            ]
+          },
+          "apiVersion": {
+            "type": "string",
+            "example": "v0"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "development",
+              "test",
+              "production"
+            ]
+          },
+          "nfseEnv": {
+            "type": "string",
+            "enum": [
+              "fake",
+              "producao-restrita",
+              "producao"
+            ]
+          },
+          "commit": {
+            "type": "string",
+            "nullable": true,
+            "example": "35ae61a"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/RuntimeModel"
+          },
+          "uptimeSeconds": {
+            "type": "number",
+            "example": 4821
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/ChecksModel"
+          }
+        },
+        "required": [
+          "status",
+          "name",
+          "version",
+          "stage",
+          "apiVersion",
+          "environment",
+          "nfseEnv",
+          "commit",
+          "runtime",
+          "uptimeSeconds",
+          "timestamp",
+          "checks"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 422
+          },
+          "message": {
+            "type": "string",
+            "example": "NFS-e rejected by the national API"
+          },
+          "details": {
+            "description": "Validation: array of field messages. Business errors: object with context (e.g. { invoiceId, code, reason }).",
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string",
+            "example": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+            "description": "Same value as the x-request-id response header"
+          }
+        },
+        "required": [
+          "statusCode",
+          "message",
+          "requestId"
+        ]
+      },
+      "CreateCompanyDto": {
+        "type": "object",
+        "properties": {
+          "cnpj": {
+            "type": "string",
+            "example": "11222333000181",
+            "description": "CNPJ da empresa, 14 dígitos, com dígito verificador válido"
+          },
+          "razaoSocial": {
+            "type": "string",
+            "example": "Minha MEI LTDA",
+            "minLength": 2,
+            "maxLength": 150
+          },
+          "inscricaoMunicipal": {
+            "type": "string",
+            "example": "123456",
+            "maxLength": 20
+          },
+          "codigoMunicipio": {
+            "type": "string",
+            "example": "3550308",
+            "description": "Código IBGE do município (7 dígitos)"
+          },
+          "email": {
+            "type": "string",
+            "example": "contato@exemplo.com"
+          },
+          "telefone": {
+            "type": "string",
+            "example": "11999999999",
+            "description": "10 ou 11 dígitos"
+          }
+        },
+        "required": [
+          "cnpj",
+          "razaoSocial",
+          "codigoMunicipio"
+        ]
+      },
+      "CompanyResponseModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cnpj": {
+            "type": "string",
+            "example": "11222333000181"
+          },
+          "razaoSocial": {
+            "type": "string",
+            "example": "Minha MEI LTDA"
+          },
+          "inscricaoMunicipal": {
+            "type": "string",
+            "nullable": true,
+            "example": "123456"
+          },
+          "codigoMunicipio": {
+            "type": "string",
+            "example": "3550308"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "contato@exemplo.com"
+          },
+          "telefone": {
+            "type": "string",
+            "nullable": true,
+            "example": "11999999999"
+          },
+          "hasCertificate": {
+            "type": "boolean",
+            "description": "Whether an A1 certificate is stored (the certificate itself is never returned)"
+          },
+          "certificateExpiry": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "TRIAL",
+              "ACTIVE"
+            ]
+          },
+          "trialEndsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "End of the 30-day trial, counted from POST /companies"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "cnpj",
+          "razaoSocial",
+          "inscricaoMunicipal",
+          "codigoMunicipio",
+          "email",
+          "telefone",
+          "hasCertificate",
+          "certificateExpiry",
+          "plan",
+          "trialEndsAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateCompanyDto": {
+        "type": "object",
+        "properties": {
+          "razaoSocial": {
+            "type": "string",
+            "example": "Minha MEI LTDA",
+            "minLength": 2,
+            "maxLength": 150
+          },
+          "inscricaoMunicipal": {
+            "type": "string",
+            "example": "123456",
+            "maxLength": 20
+          },
+          "codigoMunicipio": {
+            "type": "string",
+            "example": "3550308",
+            "description": "Código IBGE do município (7 dígitos)"
+          },
+          "email": {
+            "type": "string",
+            "example": "contato@exemplo.com"
+          },
+          "telefone": {
+            "type": "string",
+            "example": "11999999999",
+            "description": "10 ou 11 dígitos"
+          }
+        }
+      },
+      "PageMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          },
+          "total": {
+            "type": "number",
+            "example": 37
+          }
+        },
+        "required": [
+          "page",
+          "limit",
+          "total"
+        ]
+      },
+      "AuditLogResponseModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "action": {
+            "type": "string",
+            "example": "invoice.emitted",
+            "description": "company.created | company.updated | certificate.uploaded | customer.created | customer.updated | customer.deleted | invoice.emitted | invoice.rejected | invoice.pending | invoice.cancelled | invoice.cancel_rejected | trial.blocked"
+          },
+          "entityType": {
+            "type": "string",
+            "nullable": true,
+            "example": "invoice"
+          },
+          "entityId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "SUCCESS",
+              "FAILURE"
+            ]
+          },
+          "statusCode": {
+            "type": "number",
+            "nullable": true,
+            "example": 201
+          },
+          "metadata": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "example": {
+              "dpsNumero": 7,
+              "chaveAcesso": "3550308..."
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "action",
+          "entityType",
+          "entityId",
+          "outcome",
+          "statusCode",
+          "metadata",
+          "requestId"
+        ]
+      },
+      "CreateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "documento": {
+            "type": "string",
+            "example": "11444777000161",
+            "description": "CPF (11) ou CNPJ (14), só dígitos, com dígito verificador válido"
+          },
+          "nome": {
+            "type": "string",
+            "example": "Empresa Cliente",
+            "minLength": 2,
+            "maxLength": 150
+          },
+          "email": {
+            "type": "string",
+            "example": "fin@cliente.com"
+          },
+          "telefone": {
+            "type": "string",
+            "example": "11999999999"
+          }
+        },
+        "required": [
+          "documento",
+          "nome"
+        ]
+      },
+      "CustomerResponseModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documento": {
+            "type": "string",
+            "example": "11444777000161",
+            "description": "CPF (11) or CNPJ (14), digits only"
+          },
+          "nome": {
+            "type": "string",
+            "example": "Empresa Cliente"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "fin@cliente.com"
+          },
+          "telefone": {
+            "type": "string",
+            "nullable": true,
+            "example": "11999999999"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "documento",
+          "nome",
+          "email",
+          "telefone",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "documento": {
+            "type": "string",
+            "example": "11444777000161"
+          },
+          "nome": {
+            "type": "string",
+            "example": "Empresa Cliente Ltda"
+          },
+          "email": {
+            "type": "string",
+            "example": "fin@cliente.com"
+          },
+          "telefone": {
+            "type": "string",
+            "example": "11999999999"
+          }
+        }
+      },
+      "CreateInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Cliente salvo. Exclusivo com tomadorDocumento/tomadorNome"
+          },
+          "tomadorDocumento": {
+            "type": "string",
+            "example": "12345678909",
+            "description": "Obrigatório sem customerId. CPF (11) ou CNPJ (14)"
+          },
+          "tomadorNome": {
+            "type": "string",
+            "example": "Cliente Exemplo",
+            "description": "Obrigatório sem customerId"
+          },
+          "tomadorEmail": {
+            "type": "string",
+            "example": "cliente@x.com"
+          },
+          "saveCustomer": {
+            "type": "boolean",
+            "default": false,
+            "description": "Só com tomador*: salva o tomador como cliente da empresa"
+          },
+          "descricao": {
+            "type": "string",
+            "example": "Consultoria em tecnologia da informação",
+            "maxLength": 2000
+          },
+          "valor": {
+            "type": "number",
+            "example": 150,
+            "description": "Valor do serviço, até 2 casas decimais"
+          },
+          "codigoTributacao": {
+            "type": "string",
+            "example": "01.01.01",
+            "description": "Código nacional de tributação (NN.NN.NN)"
+          }
+        },
+        "required": [
+          "descricao",
+          "valor",
+          "codigoTributacao"
+        ]
+      },
+      "InvoiceResponseModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "companyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "Saved customer used on emission, if any"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ISSUED",
+              "REJECTED",
+              "CANCELLED"
+            ]
+          },
+          "dpsNumero": {
+            "type": "number",
+            "example": 7,
+            "description": "Sequential DPS number per company/series"
+          },
+          "dpsSerie": {
+            "type": "string",
+            "example": "1"
+          },
+          "tomadorDocumento": {
+            "type": "string",
+            "example": "12345678909"
+          },
+          "tomadorNome": {
+            "type": "string",
+            "example": "Cliente Exemplo"
+          },
+          "tomadorEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "descricao": {
+            "type": "string",
+            "example": "Consultoria em TI"
+          },
+          "valor": {
+            "type": "string",
+            "example": "150.00",
+            "description": "Decimal string with 2 places"
+          },
+          "codigoTributacao": {
+            "type": "string",
+            "example": "01.01.01"
+          },
+          "chaveAcesso": {
+            "type": "string",
+            "nullable": true,
+            "example": "35503082...",
+            "description": "50-digit access key once ISSUED"
+          },
+          "numeroNfse": {
+            "type": "string",
+            "nullable": true,
+            "example": "7"
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "\"code: reason\" from the national API when REJECTED"
+          },
+          "cancelledAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "cancelReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "companyId",
+          "customerId",
+          "status",
+          "dpsNumero",
+          "dpsSerie",
+          "tomadorDocumento",
+          "tomadorNome",
+          "tomadorEmail",
+          "descricao",
+          "valor",
+          "codigoTributacao",
+          "chaveAcesso",
+          "numeroNfse",
+          "rejectionReason",
+          "cancelledAt",
+          "cancelReason",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CancelInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "example": "Erro de digitação no valor do serviço",
+            "minLength": 15,
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "motivo"
+        ]
+      },
+      "AlertModel": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "CERTIFICATE_MISSING",
+              "CERTIFICATE_EXPIRED",
+              "CERTIFICATE_EXPIRING",
+              "TRIAL_EXPIRED",
+              "TRIAL_ENDING",
+              "INVOICES_PENDING"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "warning",
+              "info"
+            ],
+            "description": "Alerts are ordered critical → warning → info"
+          },
+          "message": {
+            "type": "string",
+            "example": "Seu certificado digital vence em 12 dia(s)."
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "expiresAt": "2026-10-01T00:00:00.000Z",
+              "daysLeft": 12
+            }
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ]
+      },
+      "AlertsResponseModel": {
+        "type": "object",
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertModel"
+            }
+          }
+        },
+        "required": [
+          "alerts"
+        ]
+      }
+    }
+  }
+}

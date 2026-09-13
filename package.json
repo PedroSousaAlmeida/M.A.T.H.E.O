@@ -1,6 +1,6 @@
 {
   "name": "matheo-nfse-api",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,8 @@
     "prisma:migrate": "bunx --bun prisma migrate dev",
     "postinstall": "bunx --bun prisma generate || true",
     "typecheck": "bunx tsc --noEmit",
-    "version:check": "bun run scripts/version-check.ts"
+    "version:check": "bun run scripts/version-check.ts",
+    "openapi:export": "bun run scripts/export-openapi.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11",

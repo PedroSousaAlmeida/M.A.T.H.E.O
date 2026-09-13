@@ -1,6 +1,6 @@
 # MATHEO — brief da API para o frontend
 
-Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.3.1), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
+Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.3.2), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
 
 ## 1. O produto em uma frase
 
@@ -23,7 +23,7 @@ Um MEI (microempreendedor) cadastra sua empresa e o certificado digital uma vez,
 
 ### 2.0 OpenAPI (fonte dos tipos) e CORS
 
-- **Swagger UI:** `GET /api/v0/docs` · **OpenAPI 3 JSON:** `GET /api/v0/docs-json` — ambos públicos. Gere o client tipado a partir do JSON (`openapi-typescript` / `orval` / `openapi-fetch`) em vez de escrever tipos à mão; este brief continua sendo a referência de **fluxos, estados e UX**, o OpenAPI é a referência de **contratos**.
+- **Swagger UI:** `GET /api/v0/docs` · **OpenAPI 3 JSON:** `GET /api/v0/docs-json` — ambos públicos. O mesmo documento está versionado em **`docs/openapi.json`** (o CI garante que está em dia). Desde a v0.3.2 ele descreve **requests e responses** de todas as rotas (`CompanyResponseModel`, `InvoiceResponseModel`, `CustomerResponseModel`, `AlertsResponseModel`, `AuditLogResponseModel`, `HealthResponseModel`, paginação e `ErrorResponse`), então o codegen (`openapi-typescript`, `orval`) gera os tipos de resposta também — não precisa escrever schemas à mão; se quiser validar em runtime, gere os schemas Zod a partir do JSON (`openapi-zod-client`). Gere o client tipado a partir do JSON (`openapi-typescript` / `orval` / `openapi-fetch`) em vez de escrever tipos à mão; este brief continua sendo a referência de **fluxos, estados e UX**, o OpenAPI é a referência de **contratos**.
 - **CORS:** a API libera as origens de `CORS_ORIGINS` (dev: `http://localhost:5173`). Se o front rodar em outra porta, ajuste o `.env` da API. Headers expostos: `x-request-id`, `Content-Disposition`.
 
 ### 2.1 Configuração do Logto para a SPA
