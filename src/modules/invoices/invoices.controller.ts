@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Header, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
+import { AllowExpiredTrial } from '../companies/allow-expired-trial.decorator';
 import { CancelInvoiceDto } from './dto/cancel-invoice.dto';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { ListInvoicesDto } from './dto/list-invoices.dto';
@@ -17,28 +18,33 @@ export class InvoicesController {
   }
 
   @Get()
+  @AllowExpiredTrial()
   findAll(@CurrentUser() user: AuthUser, @Query() query: ListInvoicesDto) {
     return this.invoices.findAll(user.id, query);
   }
 
   @Get(':id')
+  @AllowExpiredTrial()
   findOne(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.invoices.findOne(user.id, id);
   }
 
   @Get(':id/xml')
+  @AllowExpiredTrial()
   @Header('Content-Type', 'application/xml; charset=utf-8')
   getXml(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.invoices.getXml(user.id, id);
   }
 
   @Get(':id/pdf')
+  @AllowExpiredTrial()
   async getPdf(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     const pdf = await this.invoices.getPdf(user.id, id);
     return new StreamableFile(pdf, { type: 'application/pdf', disposition: `inline; filename="nfse-${id}.pdf"` });
   }
 
   @Post(':id/cancel')
+  @AllowExpiredTrial()
   @HttpCode(200)
   cancel(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CancelInvoiceDto) {
     return this.invoices.cancel(user.id, id, dto.motivo);

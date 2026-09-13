@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
+import { AllowExpiredTrial } from './allow-expired-trial.decorator';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -28,16 +29,19 @@ export class CompaniesController {
   }
 
   @Get('me')
+  @AllowExpiredTrial()
   findMine(@CurrentUser() user: AuthUser) {
     return this.companies.findMine(user.id);
   }
 
   @Patch('me')
+  @AllowExpiredTrial()
   update(@CurrentUser() user: AuthUser, @Body() dto: UpdateCompanyDto) {
     return this.companies.update(user.id, dto);
   }
 
   @Put('me/certificate')
+  @AllowExpiredTrial()
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_PFX_BYTES, files: 1 } }))
   setCertificate(
     @CurrentUser() user: AuthUser,

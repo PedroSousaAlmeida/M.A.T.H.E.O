@@ -129,8 +129,12 @@ export class CompaniesService {
     return company.plan === 'TRIAL' && company.trialEndsAt.getTime() < Date.now();
   }
 
+  async findByUserId(userId: string): Promise<Company | null> {
+    return this.prisma.company.findUnique({ where: { userId } });
+  }
+
   private async findEntity(userId: string): Promise<Company> {
-    const company = await this.prisma.company.findUnique({ where: { userId } });
+    const company = await this.findByUserId(userId);
     if (!company) throw new NotFoundException('Company not found');
     return company;
   }

@@ -157,7 +157,23 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(typeof expired.body.details.trialEndsAt).toBe('string');
     expect(new Date(expired.body.details.trialEndsAt).getTime()).not.toBeNaN();
 
+    const blockedCustomer = await request(server)
+      .post('/api/v0/customers')
+      .set(auth)
+      .send({ documento: '11444777000161', nome: 'Outro Cliente' });
+    expect(blockedCustomer.status).toBe(402);
+
     const listAfterExpiry = await request(server).get('/api/v0/invoices').set(auth);
     expect(listAfterExpiry.status).toBe(200);
+
+    const updateAfterExpiry = await request(server).patch('/api/v0/companies/me').set(auth).send({ telefone: '11999998888' });
+    expect(updateAfterExpiry.status).toBe(200);
+
+    const cancelAlreadyCancelled = await request(server).post(`/api/v0/invoices/${id}/cancel`).set(auth).send({ motivo: 'Já cancelada, tentando de novo' });
+    expect(cancelAlreadyCancelled.status).toBe(409);
+
+    const auditLogs = await request(server).get('/api/v0/audit-logs?action=trial.blocked').set(auth);
+    expect(auditLogs.status).toBe(200);
+    expect(auditLogs.body.total).toBeGreaterThanOrEqual(2);
   });
 });

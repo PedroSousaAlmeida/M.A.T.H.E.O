@@ -9,6 +9,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { CompaniesModule } from './modules/companies/companies.module';
+import { TrialGuard } from './modules/companies/trial.guard';
 import { CustomersModule } from './modules/customers/customers.module';
 import { HealthModule } from './modules/health/health.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
@@ -31,6 +32,8 @@ import { PrismaModule } from './prisma/prisma.module';
     // throttle first so unauthenticated floods are rate-limited before JWKS work
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // trial gate last: needs request.user set by JwtAuthGuard
+    { provide: APP_GUARD, useClass: TrialGuard },
   ],
 })
 export class AppModule implements NestModule {

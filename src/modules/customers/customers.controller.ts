@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
+import { AllowExpiredTrial } from '../companies/allow-expired-trial.decorator';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { ListCustomersDto } from './dto/list-customers.dto';
@@ -15,11 +16,13 @@ export class CustomersController {
   }
 
   @Get()
+  @AllowExpiredTrial()
   findAll(@CurrentUser() user: AuthUser, @Query() query: ListCustomersDto) {
     return this.customers.findAll(user.id, query);
   }
 
   @Get(':id')
+  @AllowExpiredTrial()
   findOne(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.customers.findOne(user.id, id);
   }
