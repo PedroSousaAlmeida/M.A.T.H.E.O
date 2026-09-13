@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "MATHEO NFS-e API",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Backend emissor de NFS-e para MEI. Todas as rotas ficam sob {{baseUrl}} (= http://localhost:3000/api/v0). Exceto /health, todas exigem access token do Logto. A collection ja vem com OAuth 2.0 (Authorization Code + PKCE) apontando para o Logto: preencha logtoClientId/logtoClientSecret no environment, abra Authorization na collection e clique em 'Get New Access Token'. O parametro resource={{apiResource}} e obrigatorio para o Logto emitir um JWT com aud correto (sem ele o token e opaco e a API responde 401). A versao desta collection (info.version) acompanha a versao do package.json.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -570,6 +570,78 @@
                 "cancel"
               ]
             }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "GET /alerts — avisos da empresa",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts"
+              ]
+            },
+            "description": "Avisos calculados sobre a empresa logada: certificado ausente/vencido/a vencer, trial vencido/a vencer, notas PENDING paradas ha mais de 10 min. Resposta { alerts: [{ code, severity, message, data }] }, ordenada critical > warning > info. Liberado com trial vencido."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Audit",
+      "item": [
+        {
+          "name": "GET /audit-logs — extrato de acoes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/audit-logs?action=&from=&to=&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "invoice.emitted",
+                  "disabled": true,
+                  "description": "filtra por acao exata, ex.: company.created, certificate.uploaded, customer.created, invoice.emitted, invoice.cancelled, trial.blocked"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01T00:00:00.000Z",
+                  "disabled": true,
+                  "description": "occurredAt >= from (ISO 8601)"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59.000Z",
+                  "disabled": true,
+                  "description": "occurredAt <= to (ISO 8601)"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Extrato de acoes (auditoria) da empresa logada, paginado, mais recentes primeiro. Cada item: { id, occurredAt, action, entityType, entityId, outcome, statusCode, metadata, requestId } (sem ip/userAgent, que ficam so no banco). Liberado com trial vencido."
           },
           "response": []
         }

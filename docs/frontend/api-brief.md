@@ -1,6 +1,6 @@
 # MATHEO — brief da API para o frontend
 
-Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.2.0), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
+Documento para quem vai desenhar/implementar as primeiras telas. Descreve o que a API já faz hoje (v0.3.0), como autenticar, os contratos de cada endpoint e os estados que a UI precisa representar.
 
 ## 1. O produto em uma frase
 
@@ -35,21 +35,22 @@ Ambientes: `LOGTO_ENDPOINT` (dev `http://localhost:3001`), issuer `${LOGTO_ENDPO
 ## 3. Convenções da API
 
 - JSON em UTF-8; datas em ISO 8601 (`2026-09-12T18:59:43.134Z`); dinheiro como **string decimal com 2 casas** na resposta (`"150.00"`) e **número** na requisição (`150` ou `150.5`).
-- Documentos (CPF/CNPJ) e telefone: **só dígitos** (`"12345678909"`, `"11222333000181"`, `"11999999999"`).
-- Erros sempre no formato:
+- Documentos (CPF/CNPJ) e telefone: **só dígitos** (`"12345678909"`, `"11222333000181"`, `"11999999999"`). CPF/CNPJ passam por validação de **dígito verificador** (não é só formato/tamanho) — um documento com dígitos verificadores inválidos ou todos os dígitos iguais (`"00000000000"`) é rejeitado com `400`.
+- Toda resposta (sucesso ou erro) traz o header **`x-request-id`** (usa o que o client mandar, se for um valor válido; senão a API gera um). Guarde-o nos logs do front e mostre-o em telas de erro/suporte — é o identificador para cruzar com os logs do backend.
+- Erros sempre no formato, agora com `requestId` (= o mesmo valor do header `x-request-id` da resposta):
 
 ```json
-{ "statusCode": 422, "message": "NFS-e rejected by the national API", "details": { "...": "..." } }
+{ "statusCode": 422, "message": "NFS-e rejected by the national API", "details": { "...": "..." }, "requestId": "a1b2c3d4-..." }
 ```
 
 | Código | Quando | O que a UI faz |
 |---|---|---|
-| 400 | corpo inválido (`message: "Validation failed"`, `details: ["cnpj must be 14 digits", ...]`) | mostrar erros por campo (as mensagens citam o nome do campo) |
+| 400 | corpo inválido (`message: "Validation failed"`, `details: ["cnpj must be 14 digits", "documento must be a valid CPF or CNPJ", ...]`) | mostrar erros por campo (as mensagens citam o nome do campo) |
 | 401 | sem token / token inválido ou expirado | renovar token pelo SDK ou mandar pro login |
 | 404 | empresa ainda não cadastrada (`GET /companies/me`) ou nota não encontrada | onboarding / lista vazia |
 | 409 | já existe empresa para o usuário; CNPJ já usado; documento de cliente já cadastrado; cancelar nota que não está `ISSUED`; emissão concorrente | mensagem direta |
 | 422 | certificado ausente/vencido/inválido; **nota rejeitada pelo fisco** (`details.code`, `details.reason`) | destacar o motivo; oferecer corrigir e reemitir |
-| 402 | trial de 30 dias vencido (só ao emitir; `details.trialEndsAt`) | tela de planos |
+| 402 | trial de 30 dias vencido, em rota bloqueada (`details.trialEndsAt`) — ver seção 5.1 para quais rotas | tela de planos |
 | 429 | limite de requisições (60/min geral, 10/min para emitir) | aguardar |
 | 502 | API Nacional fora do ar — nota fica `PENDING` | avisar "tente de novo em instantes"; a nota aparece na lista como pendente |
 | 503 | Logto/JWKS inacessível | tela de erro genérica |
@@ -184,6 +185,27 @@ PENDING que ficou (fisco fora do ar) aparece na lista até ser reconciliada (fut
 | REJECTED | vermelho | ver motivo (`rejectionReason`), "emitir novamente" (pré-preenche o formulário) |
 | PENDING | amarelo | ver; sem ações |
 
+### 4.5 Alertas
+
+**`GET /alerts`** → `{ "alerts": [{ "code": "...", "severity": "info" | "warning" | "critical", "message": "texto em pt-BR pronto pra exibir", "data": { "...": "..." } }] }`. Lista ordenada `critical` → `warning` → `info`; array vazio quando não há nada a avisar. Liberado mesmo com trial vencido (é justamente onde a UI descobre isso).
+
+| code | severity | quando aparece | `data` | sugestão de UI |
+|---|---|---|---|---|
+| `CERTIFICATE_MISSING` | warning | empresa sem certificado cadastrado | — | banner "cadastre o certificado" com atalho para a tela Empresa |
+| `CERTIFICATE_EXPIRED` | critical | certificado vencido | `{ expiredAt }` | banner vermelho fixo, bloqueia otimisticamente a emissão na UI (a API já vai recusar com 422) |
+| `CERTIFICATE_EXPIRING` | warning | certificado vence em ≤ 30 dias | `{ expiresAt, daysLeft }` | aviso "vence em X dia(s)" |
+| `TRIAL_EXPIRED` | critical | trial vencido | `{ trialEndsAt }` | redirecionar/oferecer tela de planos |
+| `TRIAL_ENDING` | warning | plano TRIAL, faltam ≤ 5 dias | `{ trialEndsAt, daysLeft }` | aviso "trial termina em X dia(s)" |
+| `INVOICES_PENDING` | warning | há notas `PENDING` criadas há mais de 10 min (fisco não confirmou) | `{ count }` | aviso "N nota(s) aguardando confirmação"; sugerir consultar depois |
+
+Uso sugerido: chamar `GET /alerts` ao entrar no dashboard e mostrar os `critical` como banner fixo, os `warning` como lista de avisos dispensável na sessão (não persiste dispensa no backend).
+
+### 4.6 Auditoria (extrato de ações)
+
+**`GET /audit-logs?page=&limit=&action=&from=&to=`** → paginado `{ data, page, limit, total }`, mais recentes primeiro. `action` filtra por ação exata; `from`/`to` (ISO 8601) filtram por `occurredAt`. Liberado com trial vencido.
+
+Cada item: `{ id, occurredAt, action, entityType, entityId, outcome: "SUCCESS" | "FAILURE", statusCode, metadata, requestId }`. Pense nisso como o "extrato de ações" da conta — útil numa tela tipo "atividade recente" ou "histórico" na área da empresa. Ações registradas hoje: `company.created`, `company.updated`, `certificate.uploaded`, `customer.created`, `customer.updated`, `customer.deleted`, `invoice.emitted`, `invoice.rejected`, `invoice.pending`, `invoice.cancelled`, `invoice.cancel_rejected`, `trial.blocked`. `metadata` varia por ação (ex.: `invoice.emitted` traz `{ dpsNumero, chaveAcesso, numeroNfse, valor, tomadorDocumento, customerId }`); trate como um objeto livre para exibir "cru" ou mapear ação a ação conforme a UI evoluir.
+
 ## 5. Registro, onboarding e o "gate" por estado
 
 O Logto só sabe **quem** a pessoa é. Quem ela é **como MEI** (CNPJ, município, certificado) o app pergunta uma única vez, na tela de onboarding ("complete seu cadastro"). O front decide qual tela mostrar olhando o **estado** devolvido pela API — não existe permissão especial no Logto.
@@ -200,7 +222,18 @@ O Logto só sabe **quem** a pessoa é. Quem ela é **como MEI** (CNPJ, municípi
 Regras:
 - **Onboarding em 2 passos**: (1) dados da empresa → `POST /companies` — cria a empresa e **inicia o trial de 30 dias** (o trial conta a partir daqui, não do registro no Logto); (2) certificado → `PUT /companies/me/certificate`. O passo 2 **pode ser pulado** ("fazer depois"): o usuário entra no app e cadastra o `.pfx` quando tiver, pelo aviso do dashboard ou pela tela Empresa.
 - Enquanto `GET /companies/me` for 404, todas as rotas de nota respondem 404 — o front deve manter o usuário no onboarding.
-- Trial vencido (`plan: "TRIAL"` e `trialEndsAt` no passado): só a **emissão** bloqueia (`402`); consultar, baixar e cancelar continuam. O front mostra "X dias restantes" no dashboard e a tela de planos ao receber 402.
+- Trial vencido (`plan: "TRIAL"` e `trialEndsAt` no passado): bloqueia **criar/alterar** coisas (emitir nota, criar/editar/excluir cliente); consultar, baixar e cancelar continuam. O front mostra "X dias restantes" no dashboard (ou o alerta `TRIAL_ENDING`/`TRIAL_EXPIRED` de `GET /alerts`, seção 4.5) e a tela de planos ao receber `402`.
+
+### 5.1 Política do trial vencido
+
+| Liberado mesmo com trial vencido | Bloqueado com `402` |
+|---|---|
+| `GET /companies/me`, `PATCH /companies/me`, `PUT /companies/me/certificate` | `POST /companies` não é afetado (ainda não tem empresa, o trial nem começou) |
+| `GET /invoices`, `GET /invoices/:id`, `/xml`, `/pdf`, `POST /invoices/:id/cancel` | `POST /invoices` |
+| `GET /customers`, `GET /customers/:id` | `POST /customers`, `PATCH /customers/:id`, `DELETE /customers/:id` |
+| `GET /audit-logs`, `GET /alerts`, `GET /health` (público) | — |
+
+Ou seja: a empresa nunca fica "presa" sem conseguir ver ou baixar o que já emitiu, nem sem poder atualizar seus próprios dados ou trocar o certificado — só não consegue **criar coisas novas** (nota, cliente) nem **alterar/excluir clientes** até assinar um plano.
 
 ## 6. Fluxos de tela sugeridos
 
@@ -220,12 +253,13 @@ Regras:
 - Collection Postman com todos os requests: `docs/collections/matheo-nfse-api.postman_collection.json`.
 - CORS ainda não está configurado na API — será liberado para a origem do front quando ele existir.
 
-## 8. Trial e tomadores (v0.2.0) — entregue
+## 8. Entregue por versão
 
-Trial de 30 dias e tomadores salvos (clientes) já estão na API e documentados junto dos endpoints: `Company.plan`/`trialEndsAt` e o gate `402` na seção 4.1 e na seção 5; `/customers` e o `POST /invoices` com `customerId`/`saveCustomer` na seção 4.3. Spec original: `docs/superpowers/specs/2026-09-12-trial-and-customers-design.md`.
+- **v0.2.0** — trial de 30 dias e tomadores salvos (clientes). `Company.plan`/`trialEndsAt` e o gate `402` na seção 4.1 e na seção 5; `/customers` e o `POST /invoices` com `customerId`/`saveCustomer` na seção 4.3. Spec: `docs/superpowers/specs/2026-09-12-trial-and-customers-design.md`.
+- **v0.3.0** — rastreabilidade (`x-request-id` em toda resposta, `requestId` nos erros — seção 3); auditoria/"extrato de ações" (`GET /audit-logs` — seção 4.6); política do trial revista para bloquear também criação/alteração de clientes, não só a emissão (seção 5.1); validação de dígito verificador de CPF/CNPJ, não só formato (400 com mensagem por campo — seção 3); alertas da empresa (`GET /alerts` — seção 4.5). Spec: `docs/superpowers/specs/2026-09-13-audit-trial-guard-alerts-design.md`.
 
 ## 9. Próximas features (deixar espaço na UI)
 
 - **Serviços salvos** (descrição + código de tributação favoritos).
-- Validação de dígito verificador de CPF/CNPJ no backend (hoje só formato).
+- Cobrança/planos de verdade (hoje o `402` do trial vencido não tem um checkout associado — ativar plano ainda é manual no banco).
 - Múltiplas empresas por usuário / acesso de contador.

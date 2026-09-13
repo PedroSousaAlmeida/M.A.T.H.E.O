@@ -17,6 +17,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
   let prisma: PrismaService;
   let privateKey: CryptoKey;
   let publicKey: CryptoKey;
+  let companyId: string | undefined;
   const cnpj = '11222333000181';
 
   const tokenFor = (sub: string) =>
@@ -52,29 +53,36 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     prisma = app.get(PrismaService);
 
     // A previous run may have left rows behind (e.g. a crash before afterAll ran).
-    await prisma.invoice.deleteMany({ where: { company: { cnpj } } });
-    await prisma.customer.deleteMany({ where: { company: { cnpj } } });
-    await prisma.company.deleteMany({ where: { cnpj } });
+    await cleanupCompanyRows();
   });
 
   afterAll(async () => {
+    await cleanupCompanyRows();
+    await app.close();
+  });
+
+  async function cleanupCompanyRows() {
+    const stale = await prisma.company.findUnique({ where: { cnpj } });
+    const id = companyId ?? stale?.id;
+    if (id) await prisma.auditLog.deleteMany({ where: { companyId: id } });
     await prisma.invoice.deleteMany({ where: { company: { cnpj } } });
     await prisma.customer.deleteMany({ where: { company: { cnpj } } });
     await prisma.company.deleteMany({ where: { cnpj } });
-    await app.close();
-  });
+  }
 
   it('GET /api/v0/health returns ok without a token', async () => {
     const res = await request(app.getHttpServer()).get('/api/v0/health');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ status: 'ok', apiVersion: 'v0', stage: 'alpha', checks: { database: { status: 'ok' } } });
     expect(res.body.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(res.headers['x-request-id']).toMatch(/^[A-Za-z0-9._-]{1,128}$/);
   });
 
   it('rejects requests without a token', async () => {
     const res = await request(app.getHttpServer()).get('/api/v0/companies/me');
     expect(res.status).toBe(401);
     expect(res.body).toEqual({ statusCode: 401, message: 'Missing bearer token', requestId: expect.any(String) });
+    expect(res.headers['x-request-id']).toBe(res.body.requestId);
 
     const alertsRes = await request(app.getHttpServer()).get('/api/v0/alerts');
     expect(alertsRes.status).toBe(401);
@@ -94,6 +102,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(created.body.hasCertificate).toBe(false);
     expect(created.body.plan).toBe('TRIAL');
     expect(new Date(created.body.trialEndsAt).getTime()).toBeGreaterThan(Date.now() + 29 * 86400000);
+    companyId = created.body.id;
 
     const noCert = await request(server).post('/api/v0/invoices').set(auth).send({ tomadorDocumento: '12345678909', tomadorNome: 'Cliente', descricao: 'Serviço', valor: 100, codigoTributacao: '01.01.01' });
     expect(noCert.status).toBe(422);
@@ -188,5 +197,12 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     const auditLogs = await request(server).get('/api/v0/audit-logs?action=trial.blocked').set(auth);
     expect(auditLogs.status).toBe(200);
     expect(auditLogs.body.total).toBeGreaterThanOrEqual(2);
+
+    const allAuditLogs = await request(server).get('/api/v0/audit-logs?limit=100').set(auth);
+    expect(allAuditLogs.status).toBe(200);
+    const actions = allAuditLogs.body.data.map((row: { action: string }) => row.action);
+    expect(actions).toEqual(
+      expect.arrayContaining(['company.created', 'certificate.uploaded', 'invoice.emitted', 'invoice.cancelled', 'customer.created']),
+    );
   });
 });
