@@ -155,6 +155,13 @@ export class InvoicesService {
     return { data: rows.map((row) => this.toResponse(row)), page: query.page, limit: query.limit, total };
   }
 
+  async countStalePending(userId: string, olderThanMinutes: number): Promise<number> {
+    const { id: companyId } = await this.companies.findMine(userId);
+    return this.prisma.invoice.count({
+      where: { companyId, status: 'PENDING', createdAt: { lt: new Date(Date.now() - olderThanMinutes * 60_000) } },
+    });
+  }
+
   async findOne(userId: string, id: string): Promise<InvoiceResponse> {
     return this.toResponse(await this.findEntity(userId, id));
   }

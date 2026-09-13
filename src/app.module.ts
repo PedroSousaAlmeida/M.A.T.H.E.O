@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { CommonModule } from './common/common.module';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { validateEnv } from './config/env';
+import { AlertsModule } from './modules/alerts/alerts.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuditModule,
     CustomersModule,
     InvoicesModule,
+    AlertsModule,
   ],
   providers: [
     // throttle first so unauthenticated floods are rate-limited before JWKS work

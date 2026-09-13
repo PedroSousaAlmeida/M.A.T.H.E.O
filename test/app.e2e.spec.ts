@@ -75,6 +75,9 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     const res = await request(app.getHttpServer()).get('/api/v0/companies/me');
     expect(res.status).toBe(401);
     expect(res.body).toEqual({ statusCode: 401, message: 'Missing bearer token', requestId: expect.any(String) });
+
+    const alertsRes = await request(app.getHttpServer()).get('/api/v0/alerts');
+    expect(alertsRes.status).toBe(401);
   });
 
   it('happy path: create company → upload certificate → emit → list → xml → cancel', async () => {
@@ -126,6 +129,10 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(list.body.total).toBe(2);
     expect(list.body.data[0].id).toBe(id);
 
+    const alertsHealthy = await request(server).get('/api/v0/alerts').set(auth);
+    expect(alertsHealthy.status).toBe(200);
+    expect(alertsHealthy.body.alerts).toEqual([]);
+
     const xml = await request(server).get(`/api/v0/invoices/${id}/xml`).set(auth);
     expect(xml.status).toBe(200);
     expect(xml.headers['content-type']).toContain('application/xml');
@@ -168,6 +175,12 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
 
     const updateAfterExpiry = await request(server).patch('/api/v0/companies/me').set(auth).send({ telefone: '11999998888' });
     expect(updateAfterExpiry.status).toBe(200);
+
+    const alertsExpired = await request(server).get('/api/v0/alerts').set(auth);
+    expect(alertsExpired.status).toBe(200);
+    expect(alertsExpired.body.alerts).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'TRIAL_EXPIRED', severity: 'critical' })]),
+    );
 
     const cancelAlreadyCancelled = await request(server).post(`/api/v0/invoices/${id}/cancel`).set(auth).send({ motivo: 'Já cancelada, tentando de novo' });
     expect(cancelAlreadyCancelled.status).toBe(409);

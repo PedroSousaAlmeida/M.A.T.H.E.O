@@ -180,6 +180,17 @@ describe('InvoicesService', () => {
     });
   });
 
+  describe('countStalePending', () => {
+    it('counts PENDING invoices older than the given threshold for the caller company', async () => {
+      prisma.invoice.count.mockResolvedValue(2);
+      const result = await service.countStalePending(userId, 10);
+      expect(prisma.invoice.count).toHaveBeenCalledWith({
+        where: { companyId: 'c1', status: 'PENDING', createdAt: { lt: expect.any(Date) } },
+      });
+      expect(result).toBe(2);
+    });
+  });
+
   describe('findAll', () => {
     it('lists only the company invoices, paginated and filtered by status', async () => {
       prisma.invoice.findMany.mockResolvedValue([pendingRow]);
