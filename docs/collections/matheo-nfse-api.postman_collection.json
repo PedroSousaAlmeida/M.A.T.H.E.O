@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "MATHEO NFS-e API",
-    "version": "0.2.0",
+    "version": "0.4.0",
     "description": "Backend emissor de NFS-e para MEI. Todas as rotas ficam sob {{baseUrl}} (= http://localhost:3000/api/v0). Exceto /health, todas exigem access token do Logto. A collection ja vem com OAuth 2.0 (Authorization Code + PKCE) apontando para o Logto: preencha logtoClientId/logtoClientSecret no environment, abra Authorization na collection e clique em 'Get New Access Token'. O parametro resource={{apiResource}} e obrigatorio para o Logto emitir um JWT com aud correto (sem ele o token e opaco e a API responde 401). A versao desta collection (info.version) acompanha a versao do package.json.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -165,7 +165,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"cnpj\": \"12345678000199\",\n  \"razaoSocial\": \"Minha MEI LTDA\",\n  \"inscricaoMunicipal\": \"123456\",\n  \"codigoMunicipio\": \"3550308\",\n  \"email\": \"contato@exemplo.com\",\n  \"telefone\": \"11999999999\"\n}"
+              "raw": "{\n  \"cnpj\": \"11222333000181\",\n  \"razaoSocial\": \"Minha MEI LTDA\",\n  \"inscricaoMunicipal\": \"123456\",\n  \"codigoMunicipio\": \"3550308\",\n  \"email\": \"contato@exemplo.com\",\n  \"telefone\": \"11999999999\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/companies",
@@ -287,7 +287,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"documento\": \"98765432000100\",\n  \"nome\": \"Empresa Cliente\",\n  \"email\": \"fin@cliente.com\"\n}"
+              "raw": "{\n  \"documento\": \"11444777000161\",\n  \"nome\": \"Empresa Cliente\",\n  \"email\": \"fin@cliente.com\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/customers",
@@ -461,6 +461,23 @@
           "response": []
         },
         {
+          "name": "GET /invoices/summary — KPIs do painel",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/invoices/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoices",
+                "summary"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "GET /invoices — listar",
           "request": {
             "method": "GET",
@@ -486,6 +503,24 @@
                   "value": "ISSUED",
                   "disabled": true,
                   "description": "PENDING | ISSUED | REJECTED | CANCELLED"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true,
+                  "description": "nome/documento do tomador (início) ou numero da NFS-e"
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true,
+                  "description": "ISO date-time"
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true,
+                  "description": "ISO date-time"
                 }
               ]
             }
@@ -570,6 +605,78 @@
                 "cancel"
               ]
             }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "GET /alerts — avisos da empresa",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts"
+              ]
+            },
+            "description": "Avisos calculados sobre a empresa logada: certificado ausente/vencido/a vencer, trial vencido/a vencer, notas PENDING paradas ha mais de 10 min. Resposta { alerts: [{ code, severity, message, data }] }, ordenada critical > warning > info. Liberado com trial vencido."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Audit",
+      "item": [
+        {
+          "name": "GET /audit-logs — extrato de acoes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/audit-logs?action=&from=&to=&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "invoice.emitted",
+                  "disabled": true,
+                  "description": "filtra por acao exata, ex.: company.created, certificate.uploaded, customer.created, invoice.emitted, invoice.cancelled, trial.blocked"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01T00:00:00.000Z",
+                  "disabled": true,
+                  "description": "occurredAt >= from (ISO 8601)"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59.000Z",
+                  "disabled": true,
+                  "description": "occurredAt <= to (ISO 8601)"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Extrato de acoes (auditoria) da empresa logada, paginado, mais recentes primeiro. Cada item: { id, occurredAt, action, entityType, entityId, outcome, statusCode, metadata, requestId } (sem ip/userAgent, que ficam so no banco). Liberado com trial vencido."
           },
           "response": []
         }
