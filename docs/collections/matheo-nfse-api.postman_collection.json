@@ -165,7 +165,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"cnpj\": \"12345678000199\",\n  \"razaoSocial\": \"Minha MEI LTDA\",\n  \"inscricaoMunicipal\": \"123456\",\n  \"codigoMunicipio\": \"3550308\",\n  \"email\": \"contato@exemplo.com\",\n  \"telefone\": \"11999999999\"\n}"
+              "raw": "{\n  \"cnpj\": \"11222333000181\",\n  \"razaoSocial\": \"Minha MEI LTDA\",\n  \"inscricaoMunicipal\": \"123456\",\n  \"codigoMunicipio\": \"3550308\",\n  \"email\": \"contato@exemplo.com\",\n  \"telefone\": \"11999999999\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/companies",
@@ -287,7 +287,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"documento\": \"98765432000100\",\n  \"nome\": \"Empresa Cliente\",\n  \"email\": \"fin@cliente.com\"\n}"
+              "raw": "{\n  \"documento\": \"11444777000161\",\n  \"nome\": \"Empresa Cliente\",\n  \"email\": \"fin@cliente.com\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/customers",

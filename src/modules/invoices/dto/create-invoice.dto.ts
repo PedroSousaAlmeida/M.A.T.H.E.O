@@ -1,4 +1,5 @@
 import { IsBoolean, IsEmail, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Length, Matches, Max, ValidateIf } from 'class-validator';
+import { IsCpfOrCnpj } from '../../../common/validators/document';
 
 export class CreateInvoiceDto {
   /** Saved customer. Mutually exclusive with tomador* — exactly one of the two must be given. */
@@ -7,7 +8,7 @@ export class CreateInvoiceDto {
   customerId?: string;
 
   @ValidateIf((o) => !o.customerId)
-  @Matches(/^(\d{11}|\d{14})$/, { message: 'tomadorDocumento must be a CPF (11 digits) or CNPJ (14 digits)' })
+  @IsCpfOrCnpj()
   tomadorDocumento?: string;
 
   @ValidateIf((o) => !o.customerId)

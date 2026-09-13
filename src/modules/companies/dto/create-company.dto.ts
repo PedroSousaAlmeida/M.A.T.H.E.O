@@ -1,7 +1,8 @@
 import { IsEmail, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsCnpj } from '../../../common/validators/document';
 
 export class CreateCompanyDto {
-  @Matches(/^\d{14}$/, { message: 'cnpj must be 14 digits' })
+  @IsCnpj()
   cnpj: string;
 
   @IsString()

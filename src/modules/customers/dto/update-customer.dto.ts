@@ -1,8 +1,9 @@
 import { IsEmail, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsCpfOrCnpj } from '../../../common/validators/document';
 
 export class UpdateCustomerDto {
   @IsOptional()
-  @Matches(/^(\d{11}|\d{14})$/, { message: 'documento must be a CPF (11 digits) or CNPJ (14 digits)' })
+  @IsCpfOrCnpj()
   documento?: string;
 
   @IsOptional()

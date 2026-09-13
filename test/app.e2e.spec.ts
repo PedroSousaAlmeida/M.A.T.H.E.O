@@ -17,7 +17,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
   let prisma: PrismaService;
   let privateKey: CryptoKey;
   let publicKey: CryptoKey;
-  const cnpj = String(Date.now()).padStart(14, '0').slice(-14);
+  const cnpj = '11222333000181';
 
   const tokenFor = (sub: string) =>
     new SignJWT({})
@@ -50,6 +50,11 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
     prisma = app.get(PrismaService);
+
+    // A previous run may have left rows behind (e.g. a crash before afterAll ran).
+    await prisma.invoice.deleteMany({ where: { company: { cnpj } } });
+    await prisma.customer.deleteMany({ where: { company: { cnpj } } });
+    await prisma.company.deleteMany({ where: { cnpj } });
   });
 
   afterAll(async () => {
@@ -69,13 +74,17 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
   it('rejects requests without a token', async () => {
     const res = await request(app.getHttpServer()).get('/api/v0/companies/me');
     expect(res.status).toBe(401);
-    expect(res.body).toEqual({ statusCode: 401, message: 'Missing bearer token' });
+    expect(res.body).toEqual({ statusCode: 401, message: 'Missing bearer token', requestId: expect.any(String) });
   });
 
   it('happy path: create company → upload certificate → emit → list → xml → cancel', async () => {
     const userId = `e2e-${Date.now()}`;
     const auth = { Authorization: `Bearer ${await tokenFor(userId)}` };
     const server = app.getHttpServer();
+
+    const invalidCnpj = await request(server).post('/api/v0/companies').set(auth).send({ cnpj: '12345678000199', razaoSocial: 'E2E LTDA', codigoMunicipio: '3550308' });
+    expect(invalidCnpj.status).toBe(400);
+    expect(invalidCnpj.body.details).toContain('cnpj must be a valid CNPJ');
 
     const created = await request(server).post('/api/v0/companies').set(auth).send({ cnpj, razaoSocial: 'E2E LTDA', codigoMunicipio: '3550308' });
     expect(created.status).toBe(201);
@@ -92,7 +101,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
     expect(uploaded.body.hasCertificate).toBe(true);
     expect(uploaded.body).not.toHaveProperty('certificatePfx');
 
-    const customer = await request(server).post('/api/v0/customers').set(auth).send({ documento: '98765432000100', nome: 'Empresa Cliente', email: 'fin@cliente.com' });
+    const customer = await request(server).post('/api/v0/customers').set(auth).send({ documento: '11444777000161', nome: 'Empresa Cliente', email: 'fin@cliente.com' });
     expect(customer.status).toBe(201);
     expect(customer.body).not.toHaveProperty('companyId');
     const customerId = customer.body.id;
@@ -103,7 +112,7 @@ describe.skipIf(!E2E_DB)('API e2e (fake gateway, real Postgres)', () => {
 
     const byCustomer = await request(server).post('/api/v0/invoices').set(auth).send({ customerId, descricao: 'Serviço para cliente salvo', valor: 50, codigoTributacao: '01.01.01' });
     expect(byCustomer.status).toBe(201);
-    expect(byCustomer.body).toMatchObject({ status: 'ISSUED', customerId, tomadorDocumento: '98765432000100', tomadorNome: 'Empresa Cliente', dpsNumero: 1 });
+    expect(byCustomer.body).toMatchObject({ status: 'ISSUED', customerId, tomadorDocumento: '11444777000161', tomadorNome: 'Empresa Cliente', dpsNumero: 1 });
 
     const emitted = await request(server).post('/api/v0/invoices').set(auth).send({ tomadorDocumento: '12345678909', tomadorNome: 'Cliente', descricao: 'Serviço', valor: 100, codigoTributacao: '01.01.01' });
     expect(emitted.status).toBe(201);

@@ -35,7 +35,7 @@ Ambientes: `LOGTO_ENDPOINT` (dev `http://localhost:3001`), issuer `${LOGTO_ENDPO
 ## 3. Convenções da API
 
 - JSON em UTF-8; datas em ISO 8601 (`2026-09-12T18:59:43.134Z`); dinheiro como **string decimal com 2 casas** na resposta (`"150.00"`) e **número** na requisição (`150` ou `150.5`).
-- Documentos (CPF/CNPJ) e telefone: **só dígitos** (`"12345678909"`, `"12345678000199"`, `"11999999999"`).
+- Documentos (CPF/CNPJ) e telefone: **só dígitos** (`"12345678909"`, `"11222333000181"`, `"11999999999"`).
 - Erros sempre no formato:
 
 ```json
@@ -67,7 +67,7 @@ Paginação: `?page=1&limit=20` → `{ "data": [...], "page": 1, "limit": 20, "t
 
 ```json
 {
-  "cnpj": "12345678000199",            // obrigatório, 14 dígitos
+  "cnpj": "11222333000181",            // obrigatório, 14 dígitos
   "razaoSocial": "Minha MEI LTDA",     // 2–150
   "inscricaoMunicipal": "123456",      // opcional
   "codigoMunicipio": "3550308",        // obrigatório, código IBGE de 7 dígitos (São Paulo = 3550308)
@@ -84,7 +84,7 @@ Paginação: `?page=1&limit=20` → `{ "data": [...], "page": 1, "limit": 20, "t
 `Company`:
 ```json
 {
-  "id": "uuid", "cnpj": "12345678000199", "razaoSocial": "Minha MEI LTDA",
+  "id": "uuid", "cnpj": "11222333000181", "razaoSocial": "Minha MEI LTDA",
   "inscricaoMunicipal": "123456", "codigoMunicipio": "3550308",
   "email": "contato@exemplo.com", "telefone": "11999999999",
   "hasCertificate": true, "certificateExpiry": "2027-09-12T16:42:00.000Z",
@@ -151,7 +151,7 @@ Clientes salvos da empresa, para reaproveitar em novas notas sem redigitar. Semp
 
 | Método | Rota | Body / query | Resposta |
 |---|---|---|---|
-| `POST` | `/customers` | `{ "documento": "98765432000100", "nome": "Empresa Cliente", "email"?: "...", "telefone"?: "..." }` | 201 `Customer` · 409 documento já cadastrado |
+| `POST` | `/customers` | `{ "documento": "11444777000161", "nome": "Empresa Cliente", "email"?: "...", "telefone"?: "..." }` | 201 `Customer` · 409 documento já cadastrado |
 | `GET` | `/customers?search=&page=&limit=` | `search` filtra por nome (contém, sem case) ou início do documento | paginado `{ data, page, limit, total }`, ordem por nome |
 | `GET` | `/customers/:id` | — | `Customer` · 404 |
 | `PATCH` | `/customers/:id` | qualquer campo acima | `Customer` · 409 |
@@ -160,7 +160,7 @@ Clientes salvos da empresa, para reaproveitar em novas notas sem redigitar. Semp
 `Customer`:
 ```json
 {
-  "id": "uuid", "documento": "98765432000100", "nome": "Empresa Cliente",
+  "id": "uuid", "documento": "11444777000161", "nome": "Empresa Cliente",
   "email": "fin@cliente.com", "telefone": null,
   "createdAt": "...", "updatedAt": "..."
 }
