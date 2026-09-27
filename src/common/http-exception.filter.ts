@@ -4,6 +4,7 @@ interface ErrorBody {
   statusCode: number;
   message: string;
   details?: unknown;
+  requestId?: string;
 }
 
 @Catch()
@@ -11,11 +12,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost) {
+    const request = host.switchToHttp().getRequest();
     const response = host.switchToHttp().getResponse();
     const body = this.toBody(exception);
+    if (request?.id) body.requestId = request.id;
     if (body.statusCode >= 500) {
-      const request = host.switchToHttp().getRequest();
-      this.logger.error(`${request.method} ${request.url} → ${body.statusCode}`, exception instanceof Error ? exception.stack : String(exception));
+      // strip the query string so a token or secret passed as a query param never reaches logs
+      const path = (request.originalUrl ?? request.url).split('?')[0];
+      this.logger.error(`${request.method} ${path} → ${body.statusCode}`, exception instanceof Error ? exception.stack : String(exception));
     }
     response.status(body.statusCode).json(body);
   }

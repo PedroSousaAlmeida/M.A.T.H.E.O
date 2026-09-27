@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
-import { BadGatewayException, BadRequestException, ConflictException, HttpException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { AuditService } from '@/modules/audit/audit.service';
 import { CompaniesService } from '@/modules/companies/companies.service';
 import { CustomersService } from '@/modules/customers/customers.service';
-import { InvoicesService } from '@/modules/invoices/invoices.service';
+import { InvoicesService, fiscalPeriodStarts } from '@/modules/invoices/invoices.service';
 import { NfseRejectedError, NfseUnavailableError } from '@/modules/nfse/errors';
 import { NFSE_GATEWAY } from '@/modules/nfse/nfse-gateway';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -27,8 +28,9 @@ describe('InvoicesService', () => {
   let service: InvoicesService;
   let prisma: ReturnType<typeof createPrismaMock>;
   let gateway: { emit: ReturnType<typeof mock>; cancel: ReturnType<typeof mock>; pdf: ReturnType<typeof mock> };
-  let companies: { getCompanyWithCertificate: ReturnType<typeof mock>; findMine: ReturnType<typeof mock>; assertCanEmit: ReturnType<typeof mock> };
+  let companies: { getCompanyWithCertificate: ReturnType<typeof mock>; findMine: ReturnType<typeof mock> };
   let customers: { findEntity: ReturnType<typeof mock>; findOrCreateByDocumento: ReturnType<typeof mock> };
+  let audit: { record: ReturnType<typeof mock> };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
@@ -36,17 +38,18 @@ describe('InvoicesService', () => {
     companies = {
       getCompanyWithCertificate: mock(async () => ({ company, certificate })),
       findMine: mock(async () => ({ id: 'c1' })),
-      assertCanEmit: mock(),
     };
     customers = { findEntity: mock(), findOrCreateByDocumento: mock() };
+    audit = { record: mock() };
     const moduleRef = await Test.createTestingModule({
       providers: [
         InvoicesService,
         { provide: PrismaService, useValue: prisma },
         { provide: CompaniesService, useValue: companies },
         { provide: CustomersService, useValue: customers },
+        { provide: AuditService, useValue: audit },
         { provide: NFSE_GATEWAY, useValue: gateway },
-        { provide: ConfigService, useValue: { get: () => 'fake' } },
+        { provide: ConfigService, useValue: { get: (key: string) => (key === 'MEI_ANNUAL_LIMIT' ? 81000 : 'fake') } },
       ],
     }).compile();
     service = moduleRef.get(InvoicesService);
@@ -128,13 +131,15 @@ describe('InvoicesService', () => {
       await expect(service.emit(userId, dto)).rejects.toBe(persistError);
       expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
       expect(gateway.emit).toHaveBeenCalledTimes(1);
-    });
-
-    it('blocks emission with 402 when the trial expired and creates nothing', async () => {
-      companies.assertCanEmit.mockImplementation(() => { throw new HttpException({ message: 'Trial expired' }, 402); });
-      await expect(service.emit(userId, dto)).rejects.toBeInstanceOf(HttpException);
-      expect(prisma.invoice.create).not.toHaveBeenCalled();
-      expect(gateway.emit).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.emitted',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { dpsNumero: 4, chaveAcesso: emitResult.chaveAcesso, numeroNfse: emitResult.numeroNfse, persisted: false },
+      });
     });
 
     it('emits by customerId, copying the customer data and storing customerId', async () => {
@@ -184,6 +189,17 @@ describe('InvoicesService', () => {
     });
   });
 
+  describe('countStalePending', () => {
+    it('counts PENDING invoices older than the given threshold for the caller company', async () => {
+      prisma.invoice.count.mockResolvedValue(2);
+      const result = await service.countStalePending(userId, 10);
+      expect(prisma.invoice.count).toHaveBeenCalledWith({
+        where: { companyId: 'c1', status: 'PENDING', createdAt: { lt: expect.any(Date) } },
+      });
+      expect(result).toBe(2);
+    });
+  });
+
   describe('findAll', () => {
     it('lists only the company invoices, paginated and filtered by status', async () => {
       prisma.invoice.findMany.mockResolvedValue([pendingRow]);
@@ -191,6 +207,64 @@ describe('InvoicesService', () => {
       const result = await service.findAll(userId, { status: 'PENDING', page: 2, limit: 10 });
       expect(prisma.invoice.findMany).toHaveBeenCalledWith({ where: { companyId: 'c1', status: 'PENDING' }, orderBy: { createdAt: 'desc' }, skip: 10, take: 10 });
       expect(result).toEqual({ data: [expect.objectContaining({ id: 'i1', valor: '150.00' })], page: 2, limit: 10, total: 1 });
+    });
+
+    it('filters by search (tomador nome/documento, numero) and by emission period', async () => {
+      prisma.invoice.findMany.mockResolvedValue([]);
+      prisma.invoice.count.mockResolvedValue(0);
+      const from = new Date('2026-09-01T03:00:00Z');
+      const to = new Date('2026-09-30T03:00:00Z');
+      await service.findAll(userId, { search: 'cli', from, to, page: 1, limit: 20 });
+      expect(prisma.invoice.findMany.mock.calls[0][0].where).toEqual({
+        companyId: 'c1',
+        OR: [
+          { tomadorNome: { contains: 'cli', mode: 'insensitive' } },
+          { tomadorDocumento: { startsWith: 'cli' } },
+          { numeroNfse: 'cli' },
+        ],
+        createdAt: { gte: from, lte: to },
+      });
+    });
+  });
+
+  describe('getSummary', () => {
+    it('aggregates ISSUED totals for the fiscal month/year, counts by status and computes annual usage', async () => {
+      prisma.invoice.aggregate
+        .mockResolvedValueOnce({ _count: { _all: 2 }, _sum: { valor: '300.00' } })
+        .mockResolvedValueOnce({ _count: { _all: 10 }, _sum: { valor: '8100.00' } });
+      prisma.invoice.groupBy.mockResolvedValue([
+        { status: 'ISSUED', _count: { _all: 10 } },
+        { status: 'CANCELLED', _count: { _all: 1 } },
+      ]);
+
+      const summary = await service.getSummary(userId);
+
+      const monthWhere = prisma.invoice.aggregate.mock.calls[0][0].where;
+      expect(monthWhere).toMatchObject({ companyId: 'c1', status: 'ISSUED' });
+      expect(monthWhere.createdAt.gte).toBeInstanceOf(Date);
+      expect(prisma.invoice.groupBy).toHaveBeenCalledWith({ by: ['status'], where: { companyId: 'c1' }, _count: { _all: true } });
+      expect(summary.month).toMatchObject({ count: 2, total: '300.00' });
+      expect(summary.year).toMatchObject({ count: 10, total: '8100.00' });
+      expect(summary.byStatus).toEqual({ PENDING: 0, ISSUED: 10, REJECTED: 0, CANCELLED: 1 });
+      expect(summary.annualLimit).toBe('81000.00');
+      expect(summary.annualUsagePct).toBe(10);
+    });
+
+    it('handles a company with no invoices', async () => {
+      prisma.invoice.aggregate.mockResolvedValue({ _count: { _all: 0 }, _sum: { valor: null } });
+      prisma.invoice.groupBy.mockResolvedValue([]);
+      const summary = await service.getSummary(userId);
+      expect(summary.month).toMatchObject({ count: 0, total: '0.00' });
+      expect(summary.annualUsagePct).toBe(0);
+    });
+  });
+
+  describe('fiscalPeriodStarts', () => {
+    it('uses America/Sao_Paulo month and year boundaries', () => {
+      // 2026-09-01T01:00Z is still Aug 31 22:00 in São Paulo
+      const { monthStart, yearStart } = fiscalPeriodStarts(new Date('2026-09-01T01:00:00Z'));
+      expect(monthStart.toISOString()).toBe('2026-08-01T03:00:00.000Z');
+      expect(yearStart.toISOString()).toBe('2026-01-01T03:00:00.000Z');
     });
   });
 
@@ -275,6 +349,15 @@ describe('InvoicesService', () => {
       await expect(service.cancel(userId, 'i1', 'x')).rejects.toBe(persistError);
       expect(prisma.invoice.update).toHaveBeenCalledTimes(2);
       expect(gateway.cancel).toHaveBeenCalledTimes(1);
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.cancelled',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { chaveAcesso: issuedRow.chaveAcesso, motivo: 'x', persisted: false },
+      });
     });
   });
 
@@ -296,6 +379,98 @@ describe('InvoicesService', () => {
       prisma.invoice.findFirst.mockResolvedValue({ ...pendingRow, status: 'ISSUED', chaveAcesso: '1'.repeat(50) });
       gateway.pdf.mockRejectedValue(new NfseUnavailableError());
       await expect(service.getPdf(userId, 'i1')).rejects.toBeInstanceOf(BadGatewayException);
+    });
+  });
+
+  describe('audit', () => {
+    beforeEach(() => {
+      prisma.invoice.aggregate.mockResolvedValue({ _max: { dpsNumero: 3 } });
+      prisma.invoice.create.mockResolvedValue(pendingRow);
+    });
+
+    it('records invoice.emitted', async () => {
+      gateway.emit.mockResolvedValue(emitResult);
+      prisma.invoice.update.mockResolvedValue({ ...pendingRow, status: 'ISSUED', ...emitResult });
+
+      await service.emit(userId, dto);
+
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.emitted',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        statusCode: 201,
+        metadata: { dpsNumero: 4, chaveAcesso: emitResult.chaveAcesso, numeroNfse: '4', valor: '150.00', tomadorDocumento: '12345678909', customerId: null },
+      });
+    });
+
+    it('records invoice.rejected', async () => {
+      gateway.emit.mockRejectedValue(new NfseRejectedError('E123', 'Tomador inválido'));
+      prisma.invoice.update.mockResolvedValue({ ...pendingRow, status: 'REJECTED' });
+
+      await expect(service.emit(userId, dto)).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.rejected',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        outcome: 'FAILURE',
+        statusCode: 422,
+        metadata: { dpsNumero: 4, code: 'E123', reason: 'Tomador inválido' },
+      });
+    });
+
+    it('records invoice.pending', async () => {
+      gateway.emit.mockRejectedValue(new NfseUnavailableError());
+
+      await expect(service.emit(userId, dto)).rejects.toBeInstanceOf(BadGatewayException);
+
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.pending',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        outcome: 'FAILURE',
+        statusCode: 502,
+        metadata: { dpsNumero: 4 },
+      });
+    });
+
+    it('records invoice.cancelled', async () => {
+      const issuedRow = { ...pendingRow, status: 'ISSUED', chaveAcesso: '1'.repeat(50), numeroNfse: '4', xmlNfse: '<NFSe/>' };
+      prisma.invoice.findFirst.mockResolvedValue(issuedRow);
+      gateway.cancel.mockResolvedValue(undefined);
+      prisma.invoice.update.mockImplementation(async ({ data }: any) => ({ ...issuedRow, ...data }));
+
+      await service.cancel(userId, 'i1', 'Erro de digitação');
+
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.cancelled',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        statusCode: 200,
+        metadata: { chaveAcesso: issuedRow.chaveAcesso, motivo: 'Erro de digitação' },
+      });
+    });
+
+    it('records invoice.cancel_rejected', async () => {
+      const issuedRow = { ...pendingRow, status: 'ISSUED', chaveAcesso: '1'.repeat(50), numeroNfse: '4', xmlNfse: '<NFSe/>' };
+      prisma.invoice.findFirst.mockResolvedValue(issuedRow);
+      gateway.cancel.mockRejectedValue(new NfseRejectedError('E200', 'Prazo expirado'));
+
+      await expect(service.cancel(userId, 'i1', 'x')).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+      expect(audit.record).toHaveBeenCalledWith({
+        action: 'invoice.cancel_rejected',
+        companyId: 'c1',
+        entityType: 'invoice',
+        entityId: 'i1',
+        outcome: 'FAILURE',
+        statusCode: 422,
+        metadata: { chaveAcesso: issuedRow.chaveAcesso, code: 'E200', reason: 'Prazo expirado' },
+      });
     });
   });
 });

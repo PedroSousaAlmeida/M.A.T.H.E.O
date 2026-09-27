@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Customer } from '../../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CompaniesService } from '../companies/companies.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { ListCustomersDto } from './dto/list-customers.dto';
@@ -21,12 +22,22 @@ export class CustomersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly companies: CompaniesService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(userId: string, dto: CreateCustomerDto): Promise<CustomerResponse> {
     const { id: companyId } = await this.companies.findMine(userId);
     try {
-      return this.toResponse(await this.prisma.customer.create({ data: { ...dto, companyId } }));
+      const created = await this.prisma.customer.create({ data: { ...dto, companyId } });
+      await this.audit.record({
+        action: 'customer.created',
+        companyId,
+        entityType: 'customer',
+        entityId: created.id,
+        statusCode: 201,
+        metadata: { documento: created.documento },
+      });
+      return this.toResponse(created);
     } catch (error) {
       throw this.mapUniqueViolation(error);
     }
@@ -54,7 +65,16 @@ export class CustomersService {
   async update(userId: string, id: string, dto: UpdateCustomerDto): Promise<CustomerResponse> {
     const customer = await this.findEntity(userId, id);
     try {
-      return this.toResponse(await this.prisma.customer.update({ where: { id: customer.id }, data: dto }));
+      const updated = await this.prisma.customer.update({ where: { id: customer.id }, data: dto });
+      await this.audit.record({
+        action: 'customer.updated',
+        companyId: customer.companyId,
+        entityType: 'customer',
+        entityId: customer.id,
+        statusCode: 200,
+        metadata: { documento: updated.documento, fields: Object.keys(dto).filter((k) => (dto as Record<string, unknown>)[k] !== undefined) },
+      });
+      return this.toResponse(updated);
     } catch (error) {
       throw this.mapUniqueViolation(error);
     }
@@ -63,6 +83,14 @@ export class CustomersService {
   async remove(userId: string, id: string): Promise<void> {
     const customer = await this.findEntity(userId, id);
     await this.prisma.customer.delete({ where: { id: customer.id } });
+    await this.audit.record({
+      action: 'customer.deleted',
+      companyId: customer.companyId,
+      entityType: 'customer',
+      entityId: customer.id,
+      statusCode: 204,
+      metadata: { documento: customer.documento },
+    });
   }
 
   async findEntity(userId: string, id: string): Promise<Customer> {

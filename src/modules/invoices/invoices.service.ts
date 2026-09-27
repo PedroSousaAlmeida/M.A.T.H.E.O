@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Invoice, Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CompaniesService } from '../companies/companies.service';
 import { CustomersService } from '../customers/customers.service';
 import { NfseRejectedError, NfseUnavailableError } from '../nfse/errors';
@@ -23,24 +24,44 @@ export const DEFAULT_SERIE = '1';
 
 export type InvoiceResponse = Omit<Invoice, 'xmlDps' | 'xmlNfse' | 'valor'> & { valor: string };
 
+export interface InvoiceSummary {
+  month: { count: number; total: string; start: string };
+  year: { count: number; total: string; start: string };
+  byStatus: Record<'PENDING' | 'ISSUED' | 'REJECTED' | 'CANCELLED', number>;
+  annualLimit: string;
+  annualUsagePct: number;
+}
+
+const FISCAL_TIME_ZONE = 'America/Sao_Paulo';
+
+/** First instant of the current month and year in the fiscal time zone (Brazil has no DST since 2019: fixed -03:00). */
+export function fiscalPeriodStarts(now: Date): { monthStart: Date; yearStart: Date } {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: FISCAL_TIME_ZONE, year: 'numeric', month: '2-digit' }).formatToParts(now);
+  const year = parts.find((p) => p.type === 'year')!.value;
+  const month = parts.find((p) => p.type === 'month')!.value;
+  return { monthStart: new Date(`${year}-${month}-01T00:00:00-03:00`), yearStart: new Date(`${year}-01-01T00:00:00-03:00`) };
+}
+
 @Injectable()
 export class InvoicesService {
   private readonly logger = new Logger(InvoicesService.name);
   private readonly ambiente: NfseAmbiente;
+  private readonly annualLimit: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly companies: CompaniesService,
     private readonly customers: CustomersService,
+    private readonly audit: AuditService,
     @Inject(NFSE_GATEWAY) private readonly gateway: NfseGateway,
     config: ConfigService<Env, true>,
   ) {
     this.ambiente = config.get('NFSE_ENV', { infer: true }) === 'producao' ? 'producao' : 'homologacao';
+    this.annualLimit = config.get('MEI_ANNUAL_LIMIT', { infer: true });
   }
 
   async emit(userId: string, dto: CreateInvoiceDto): Promise<InvoiceResponse> {
     const { company, certificate } = await this.companies.getCompanyWithCertificate(userId);
-    this.companies.assertCanEmit(company);
     const tomador = await this.resolveTomador(userId, company.id, dto);
     const valor = dto.valor.toFixed(2);
 
@@ -93,21 +114,84 @@ export class InvoicesService {
           where: { id: invoice.id },
           data: { status: 'REJECTED', rejectionReason: `${error.code}: ${error.message}` },
         });
+        await this.audit.record({
+          action: 'invoice.rejected',
+          companyId: company.id,
+          entityType: 'invoice',
+          entityId: invoice.id,
+          outcome: 'FAILURE',
+          statusCode: 422,
+          metadata: { dpsNumero: invoice.dpsNumero, code: error.code, reason: error.message },
+        });
+      } else if (error instanceof NfseUnavailableError) {
+        await this.audit.record({
+          action: 'invoice.pending',
+          companyId: company.id,
+          entityType: 'invoice',
+          entityId: invoice.id,
+          outcome: 'FAILURE',
+          statusCode: 502,
+          metadata: { dpsNumero: invoice.dpsNumero },
+        });
       }
       this.mapGatewayError(error, invoice.id, 'NFS-e rejected by the national API', 'National NFS-e API unavailable; invoice kept as PENDING');
     }
 
-    const issued = await this.persistOutcome(
-      invoice.id,
-      { status: 'ISSUED', ...result },
-      `Invoice ${invoice.id} was issued at the national API (chaveAcesso=${result.chaveAcesso}, numeroNfse=${result.numeroNfse}) but could not be persisted; reconcile manually`,
-    );
+    let issued: Invoice;
+    try {
+      issued = await this.persistOutcome(
+        invoice.id,
+        { status: 'ISSUED', ...result },
+        `Invoice ${invoice.id} was issued at the national API (chaveAcesso=${result.chaveAcesso}, numeroNfse=${result.numeroNfse}) but could not be persisted; reconcile manually`,
+      );
+    } catch (error) {
+      await this.audit.record({
+        action: 'invoice.emitted',
+        companyId: company.id,
+        entityType: 'invoice',
+        entityId: invoice.id,
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { dpsNumero: invoice.dpsNumero, chaveAcesso: result.chaveAcesso, numeroNfse: result.numeroNfse, persisted: false },
+      });
+      throw error;
+    }
+    await this.audit.record({
+      action: 'invoice.emitted',
+      companyId: company.id,
+      entityType: 'invoice',
+      entityId: issued.id,
+      statusCode: 201,
+      metadata: {
+        dpsNumero: issued.dpsNumero,
+        chaveAcesso: issued.chaveAcesso,
+        numeroNfse: issued.numeroNfse,
+        valor: Number(issued.valor).toFixed(2),
+        tomadorDocumento: issued.tomadorDocumento,
+        customerId: issued.customerId,
+      },
+    });
     return this.toResponse(issued);
   }
 
   async findAll(userId: string, query: ListInvoicesDto) {
     const { id: companyId } = await this.companies.findMine(userId);
-    const where = { companyId, ...(query.status ? { status: query.status } : {}) };
+    const where: Prisma.InvoiceWhereInput = {
+      companyId,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { tomadorNome: { contains: query.search, mode: 'insensitive' } },
+              { tomadorDocumento: { startsWith: query.search } },
+              { numeroNfse: query.search },
+            ],
+          }
+        : {}),
+      ...(query.from || query.to
+        ? { createdAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lte: query.to } : {}) } }
+        : {}),
+    };
     const [rows, total] = await Promise.all([
       this.prisma.invoice.findMany({
         where,
@@ -118,6 +202,39 @@ export class InvoicesService {
       this.prisma.invoice.count({ where }),
     ]);
     return { data: rows.map((row) => this.toResponse(row)), page: query.page, limit: query.limit, total };
+  }
+
+  async countStalePending(userId: string, olderThanMinutes: number): Promise<number> {
+    const { id: companyId } = await this.companies.findMine(userId);
+    return this.prisma.invoice.count({
+      where: { companyId, status: 'PENDING', createdAt: { lt: new Date(Date.now() - olderThanMinutes * 60_000) } },
+    });
+  }
+
+  /**
+   * Dashboard KPIs. Revenue counts only ISSUED invoices (cancelled/rejected/pending never count),
+   * with month/year boundaries in America/Sao_Paulo (the fiscal calendar).
+   */
+  async getSummary(userId: string): Promise<InvoiceSummary> {
+    const { id: companyId } = await this.companies.findMine(userId);
+    const { monthStart, yearStart } = fiscalPeriodStarts(new Date());
+    const issued = { companyId, status: 'ISSUED' as const };
+    const [month, year, groups] = await Promise.all([
+      this.prisma.invoice.aggregate({ where: { ...issued, createdAt: { gte: monthStart } }, _count: { _all: true }, _sum: { valor: true } }),
+      this.prisma.invoice.aggregate({ where: { ...issued, createdAt: { gte: yearStart } }, _count: { _all: true }, _sum: { valor: true } }),
+      this.prisma.invoice.groupBy({ by: ['status'], where: { companyId }, _count: { _all: true } }),
+    ]);
+    const byStatus = { PENDING: 0, ISSUED: 0, REJECTED: 0, CANCELLED: 0 };
+    for (const g of groups) byStatus[g.status] = g._count._all;
+    const yearTotal = Number(year._sum.valor ?? 0);
+    const annualLimit = this.annualLimit;
+    return {
+      month: { count: month._count._all, total: Number(month._sum.valor ?? 0).toFixed(2), start: monthStart.toISOString() },
+      year: { count: year._count._all, total: yearTotal.toFixed(2), start: yearStart.toISOString() },
+      byStatus,
+      annualLimit: annualLimit.toFixed(2),
+      annualUsagePct: Math.round((yearTotal / annualLimit) * 1000) / 10,
+    };
   }
 
   async findOne(userId: string, id: string): Promise<InvoiceResponse> {
@@ -148,14 +265,47 @@ export class InvoicesService {
         certificate,
       );
     } catch (error) {
+      if (error instanceof NfseRejectedError) {
+        await this.audit.record({
+          action: 'invoice.cancel_rejected',
+          companyId: company.id,
+          entityType: 'invoice',
+          entityId: invoice.id,
+          outcome: 'FAILURE',
+          statusCode: 422,
+          metadata: { chaveAcesso: invoice.chaveAcesso, code: error.code, reason: error.message },
+        });
+      }
       this.mapGatewayError(error, invoice.id, 'Cancellation rejected by the national API', 'National NFS-e API unavailable');
     }
 
-    const cancelled = await this.persistOutcome(
-      invoice.id,
-      { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
-      `Invoice ${invoice.id} was cancelled at the national API (chaveAcesso=${invoice.chaveAcesso}) but could not be persisted; reconcile manually`,
-    );
+    let cancelled: Invoice;
+    try {
+      cancelled = await this.persistOutcome(
+        invoice.id,
+        { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: motivo },
+        `Invoice ${invoice.id} was cancelled at the national API (chaveAcesso=${invoice.chaveAcesso}) but could not be persisted; reconcile manually`,
+      );
+    } catch (error) {
+      await this.audit.record({
+        action: 'invoice.cancelled',
+        companyId: company.id,
+        entityType: 'invoice',
+        entityId: invoice.id,
+        outcome: 'FAILURE',
+        statusCode: 500,
+        metadata: { chaveAcesso: invoice.chaveAcesso, motivo, persisted: false },
+      });
+      throw error;
+    }
+    await this.audit.record({
+      action: 'invoice.cancelled',
+      companyId: company.id,
+      entityType: 'invoice',
+      entityId: cancelled.id,
+      statusCode: 200,
+      metadata: { chaveAcesso: cancelled.chaveAcesso, motivo },
+    });
     return this.toResponse(cancelled);
   }
 

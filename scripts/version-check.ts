@@ -32,10 +32,20 @@ for (const file of collections) {
   }
 }
 
+const openapiPath = 'docs/openapi.json';
+try {
+  const openapi = JSON.parse(readFileSync(openapiPath, 'utf8')) as { info?: { version?: string } };
+  if (openapi.info?.version !== pkg.version) {
+    errors.push(`${openapiPath}: info.version "${openapi.info?.version}" != package.json "${pkg.version}" (run: bun run openapi:export)`);
+  }
+} catch {
+  errors.push(`${openapiPath} is missing (run: bun run openapi:export)`);
+}
+
 if (errors.length > 0) {
   console.error('Version check failed:');
   for (const error of errors) console.error(`  - ${error}`);
   process.exit(1);
 }
 
-console.log(`Version check OK: ${pkg.version} (package.json + ${collections.length} collection(s))`);
+console.log(`Version check OK: ${pkg.version} (package.json + ${collections.length} collection(s) + docs/openapi.json)`);

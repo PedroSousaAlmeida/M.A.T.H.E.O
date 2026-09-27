@@ -21,3 +21,7 @@ jobs:
       - run: bun run typecheck
       - run: bun test
       - run: bun run version:check
+      - name: OpenAPI document is up to date
+        run: |
+          bun run openapi:export
+          git diff --exit-code -- docs/openapi.json || (echo '::error::docs/openapi.json is stale — run `bun run openapi:export` and commit' && exit 1)

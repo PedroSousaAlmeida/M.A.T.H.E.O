@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
-import { ConflictException, HttpException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuditService } from '@/modules/audit/audit.service';
 import { CompaniesService } from '@/modules/companies/companies.service';
 import { CertificateVault } from '@/modules/nfse/crypto/certificate-vault';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -31,6 +32,7 @@ describe('CompaniesService', () => {
   let service: CompaniesService;
   let prisma: ReturnType<typeof createPrismaMock>;
   let vault: { encrypt: ReturnType<typeof mock>; decrypt: ReturnType<typeof mock>; encryptString: ReturnType<typeof mock>; decryptString: ReturnType<typeof mock> };
+  let audit: { record: ReturnType<typeof mock> };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
@@ -40,8 +42,14 @@ describe('CompaniesService', () => {
       encryptString: mock((s: string) => `enc:${s}`),
       decryptString: mock((s: string) => s.slice(4)),
     };
+    audit = { record: mock() };
     const moduleRef = await Test.createTestingModule({
-      providers: [CompaniesService, { provide: PrismaService, useValue: prisma }, { provide: CertificateVault, useValue: vault }],
+      providers: [
+        CompaniesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: CertificateVault, useValue: vault },
+        { provide: AuditService, useValue: audit },
+      ],
     }).compile();
     service = moduleRef.get(CompaniesService);
   });
@@ -158,21 +166,40 @@ describe('CompaniesService', () => {
       expect(result.trialEndsAt).toBeInstanceOf(Date);
     });
 
-    it('assertCanEmit passes for an active trial and for ACTIVE plans', () => {
-      expect(() => service.assertCanEmit({ plan: 'TRIAL', trialEndsAt: new Date(Date.now() + 1000) })).not.toThrow();
-      expect(() => service.assertCanEmit({ plan: 'ACTIVE', trialEndsAt: new Date(0) })).not.toThrow();
+    it('isTrialExpired returns false for an active trial and for ACTIVE plans', () => {
+      expect(service.isTrialExpired({ plan: 'TRIAL', trialEndsAt: new Date(Date.now() + 1000) })).toBe(false);
+      expect(service.isTrialExpired({ plan: 'ACTIVE', trialEndsAt: new Date(0) })).toBe(false);
     });
 
-    it('assertCanEmit throws 402 for an expired trial', () => {
+    it('isTrialExpired returns true for an expired trial', () => {
       const trialEndsAt = new Date(Date.now() - 1000);
-      try {
-        service.assertCanEmit({ plan: 'TRIAL', trialEndsAt });
-        throw new Error('did not throw');
-      } catch (error) {
-        expect(error).toBeInstanceOf(HttpException);
-        expect((error as HttpException).getStatus()).toBe(402);
-        expect((error as HttpException).getResponse()).toEqual({ message: 'Trial expired', details: { trialEndsAt } });
-      }
+      expect(service.isTrialExpired({ plan: 'TRIAL', trialEndsAt })).toBe(true);
+    });
+  });
+
+  describe('audit', () => {
+    it('records company.created', async () => {
+      prisma.company.findUnique.mockResolvedValue(null);
+      prisma.company.create.mockResolvedValue(baseCompany);
+      await service.create(userId, createDto);
+      expect(audit.record).toHaveBeenCalledWith({ action: 'company.created', companyId: 'c1', entityType: 'company', entityId: 'c1', statusCode: 201, metadata: { cnpj: '12345678000199' } });
+    });
+
+    it('records company.updated with the changed fields', async () => {
+      prisma.company.findUnique.mockResolvedValue(baseCompany);
+      prisma.company.update.mockResolvedValue({ ...baseCompany, razaoSocial: 'Nova' });
+      await service.update(userId, { razaoSocial: 'Nova' });
+      expect(audit.record).toHaveBeenCalledWith({ action: 'company.updated', companyId: 'c1', entityType: 'company', entityId: 'c1', statusCode: 200, metadata: { fields: ['razaoSocial'] } });
+    });
+
+    it('records certificate.uploaded with expiry and CN only', async () => {
+      const { pfx, password } = createTestPfx();
+      prisma.company.findUnique.mockResolvedValue(baseCompany);
+      prisma.company.update.mockImplementation(async ({ data }: any) => ({ ...baseCompany, ...data }));
+      await service.setCertificate(userId, pfx, password);
+      const call = audit.record.mock.calls[0][0];
+      expect(call).toMatchObject({ action: 'certificate.uploaded', companyId: 'c1', statusCode: 200 });
+      expect(Object.keys(call.metadata)).toEqual(['certificateExpiry', 'subjectCn']);
     });
   });
 });

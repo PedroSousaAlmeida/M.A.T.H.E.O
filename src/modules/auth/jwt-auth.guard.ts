@@ -10,6 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { errors as joseErrors, jwtVerify, type JWTVerifyGetKey } from 'jose';
+import { RequestContext } from '../../common/request-context';
 import type { Env } from '../../config/env';
 import { JWKS } from './jwks.provider';
 import { IS_PUBLIC_KEY } from './public.decorator';
@@ -49,6 +50,7 @@ export class JwtAuthGuard implements CanActivate {
         throw new UnauthorizedException('Invalid token');
       }
       request.user = { id: payload.sub };
+      RequestContext.set({ userId: payload.sub });
       return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) {

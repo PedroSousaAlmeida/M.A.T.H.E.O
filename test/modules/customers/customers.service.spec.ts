@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuditService } from '@/modules/audit/audit.service';
 import { CompaniesService } from '@/modules/companies/companies.service';
 import { CustomersService } from '@/modules/customers/customers.service';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -16,14 +17,17 @@ const createDto = { documento: '12345678909', nome: 'Cliente Um' };
 describe('CustomersService', () => {
   let service: CustomersService;
   let prisma: ReturnType<typeof createPrismaMock>;
+  let audit: { record: ReturnType<typeof mock> };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
+    audit = { record: mock() };
     const moduleRef = await Test.createTestingModule({
       providers: [
         CustomersService,
         { provide: PrismaService, useValue: prisma },
         { provide: CompaniesService, useValue: { findMine: mock(async () => ({ id: 'c1' })) } },
+        { provide: AuditService, useValue: audit },
       ],
     }).compile();
     service = moduleRef.get(CustomersService);
@@ -95,6 +99,28 @@ describe('CustomersService', () => {
       where: { companyId_documento: { companyId: 'c1', documento: '11111111111' } },
       create: { companyId: 'c1', documento: '11111111111', nome: 'Novo', email: 'n@x.com' },
       update: {},
+    });
+  });
+
+  describe('audit', () => {
+    it('records customer.created', async () => {
+      prisma.customer.create.mockResolvedValue(row);
+      await service.create(userId, createDto);
+      expect(audit.record).toHaveBeenCalledWith({ action: 'customer.created', companyId: 'c1', entityType: 'customer', entityId: 'cu1', statusCode: 201, metadata: { documento: '12345678909' } });
+    });
+
+    it('records customer.updated with the current documento and changed fields', async () => {
+      prisma.customer.findFirst.mockResolvedValue(row);
+      prisma.customer.update.mockResolvedValue({ ...row, nome: 'Novo' });
+      await service.update(userId, 'cu1', { nome: 'Novo' });
+      expect(audit.record).toHaveBeenCalledWith({ action: 'customer.updated', companyId: 'c1', entityType: 'customer', entityId: 'cu1', statusCode: 200, metadata: { documento: '12345678909', fields: ['nome'] } });
+    });
+
+    it('records customer.deleted', async () => {
+      prisma.customer.findFirst.mockResolvedValue(row);
+      prisma.customer.delete.mockResolvedValue(row);
+      await service.remove(userId, 'cu1');
+      expect(audit.record).toHaveBeenCalledWith({ action: 'customer.deleted', companyId: 'c1', entityType: 'customer', entityId: 'cu1', statusCode: 204, metadata: { documento: '12345678909' } });
     });
   });
 });

@@ -1,6 +1,7 @@
-import { ConflictException, HttpException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import type { Company, Plan } from '../../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { loadCertificate, type LoadedCertificate } from '../nfse/certificate';
 import { CertificateVault } from '../nfse/crypto/certificate-vault';
 import { InvalidCertificateError } from '../nfse/errors';
@@ -30,6 +31,7 @@ export class CompaniesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly vault: CertificateVault,
+    private readonly audit: AuditService,
   ) {}
 
   async create(userId: string, dto: CreateCompanyDto): Promise<CompanyResponse> {
@@ -38,6 +40,14 @@ export class CompaniesService {
 
     try {
       const company = await this.prisma.company.create({ data: { ...dto, userId, plan: 'TRIAL', trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 3600 * 1000) } });
+      await this.audit.record({
+        action: 'company.created',
+        companyId: company.id,
+        entityType: 'company',
+        entityId: company.id,
+        statusCode: 201,
+        metadata: { cnpj: company.cnpj },
+      });
       return this.toResponse(company);
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
@@ -54,6 +64,14 @@ export class CompaniesService {
   async update(userId: string, dto: UpdateCompanyDto): Promise<CompanyResponse> {
     const company = await this.findEntity(userId);
     const updated = await this.prisma.company.update({ where: { id: company.id }, data: dto });
+    await this.audit.record({
+      action: 'company.updated',
+      companyId: company.id,
+      entityType: 'company',
+      entityId: company.id,
+      statusCode: 200,
+      metadata: { fields: Object.keys(dto).filter((k) => (dto as Record<string, unknown>)[k] !== undefined) },
+    });
     return this.toResponse(updated);
   }
 
@@ -82,6 +100,14 @@ export class CompaniesService {
         certificateExpiry: loaded.notAfter,
       },
     });
+    await this.audit.record({
+      action: 'certificate.uploaded',
+      companyId: company.id,
+      entityType: 'company',
+      entityId: company.id,
+      statusCode: 200,
+      metadata: { certificateExpiry: loaded.notAfter, subjectCn: loaded.subjectCn },
+    });
     return this.toResponse(updated);
   }
 
@@ -98,15 +124,17 @@ export class CompaniesService {
     return { company, certificate: loadCertificate(pfx, password) };
   }
 
-  /** Emission is the only feature gated by the trial. */
-  assertCanEmit(company: Pick<Company, 'plan' | 'trialEndsAt'>): void {
-    if (company.plan === 'TRIAL' && company.trialEndsAt.getTime() < Date.now()) {
-      throw new HttpException({ message: 'Trial expired', details: { trialEndsAt: company.trialEndsAt } }, 402);
-    }
+  /** Expired TRIAL blocks the routes not marked @AllowExpiredTrial (see TrialGuard). */
+  isTrialExpired(company: Pick<Company, 'plan' | 'trialEndsAt'>): boolean {
+    return company.plan === 'TRIAL' && company.trialEndsAt.getTime() < Date.now();
+  }
+
+  async findByUserId(userId: string): Promise<Company | null> {
+    return this.prisma.company.findUnique({ where: { userId } });
   }
 
   private async findEntity(userId: string): Promise<Company> {
-    const company = await this.prisma.company.findUnique({ where: { userId } });
+    const company = await this.findByUserId(userId);
     if (!company) throw new NotFoundException('Company not found');
     return company;
   }

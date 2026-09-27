@@ -8,7 +8,7 @@
 import { writeFileSync } from 'node:fs';
 import forge from 'node-forge';
 
-const [output = 'dev-cert.pfx', password = 'dev-password', cnpj = '12345678000199'] = process.argv.slice(2);
+const [output = 'dev-cert.pfx', password = 'dev-password', cnpj = '11222333000181'] = process.argv.slice(2);
 
 const keys = forge.pki.rsa.generateKeyPair(2048);
 const cert = forge.pki.createCertificate();

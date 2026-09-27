@@ -24,6 +24,14 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...valid, NFSE_ENV: 'producao-restrita' })).toThrow(/NFSE_SEFIN_URL/);
   });
 
+  it('parses CORS_ORIGINS as a trimmed list with a localhost default', () => {
+    expect(validateEnv(valid).CORS_ORIGINS).toEqual(['http://localhost:5173']);
+    expect(validateEnv({ ...valid, CORS_ORIGINS: ' https://app.matheo.com.br, http://localhost:3000 ,' }).CORS_ORIGINS).toEqual([
+      'https://app.matheo.com.br',
+      'http://localhost:3000',
+    ]);
+  });
+
   it('rejects an unknown NFSE_ENV', () => {
     expect(() => validateEnv({ ...valid, NFSE_ENV: 'staging' })).toThrow(/NFSE_ENV/);
   });

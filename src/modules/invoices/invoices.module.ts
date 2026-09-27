@@ -9,5 +9,6 @@ import { InvoicesService } from './invoices.service';
   imports: [CompaniesModule, CustomersModule, NfseModule],
   controllers: [InvoicesController],
   providers: [InvoicesService],
+  exports: [InvoicesService],
 })
 export class InvoicesModule {}
